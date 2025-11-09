@@ -1,0 +1,236 @@
+{% extends "base.html" %}
+
+{% block title %}Storico - HomeBrewer{% endblock %}
+{% block header %}✅ Produzioni Completate{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    transition: transform 0.2s;
+  }
+  
+  .card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.7);
+  }
+  
+  .card img {
+    width: 100%;
+    border-radius: 8px;
+    max-height: 250px;
+    object-fit: cover;
+    margin-bottom: 15px;
+  }
+  
+  .card h2 {
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+  
+  .completion-badge {
+    display: inline-block;
+    padding: 6px 14px;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    background: rgba(76, 175, 80, 0.2);
+    color: #4CAF50;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+    margin-bottom: 15px;
+  }
+  
+  .production-dates {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    padding: 15px;
+    background: rgba(0,0,0,0.3);
+    border-radius: 8px;
+    margin: 15px 0;
+  }
+  
+  .date-item {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .date-label {
+    color: var(--muted);
+    font-size: 0.85rem;
+    margin-bottom: 5px;
+  }
+  
+  .date-value {
+    color: var(--text);
+    font-weight: 600;
+  }
+  
+  .duration-badge {
+    background: rgba(243, 156, 18, 0.2);
+    color: var(--accent);
+    padding: 8px 15px;
+    border-radius: 8px;
+    display: inline-block;
+    font-weight: 600;
+    border: 1px solid rgba(243, 156, 18, 0.3);
+  }
+  
+  .note-section {
+    margin-top: 15px;
+    padding: 15px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    color: var(--muted);
+    border-left: 3px solid var(--accent);
+  }
+  
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+  
+  .empty-state-icon {
+    font-size: 4rem;
+    margin-bottom: 20px;
+  }
+  
+  .stats-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin-bottom: 30px;
+  }
+  
+  .stat-card {
+    background: var(--surface);
+    padding: 20px;
+    border-radius: 12px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  }
+  
+  .stat-value {
+    font-size: 2rem;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  
+  .stat-label {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if esecuzioni|length == 0 %}
+  <div class="empty-state">
+    <div class="empty-state-icon">✅</div>
+    <h3>Nessuna produzione completata</h3>
+    <p>Le tue produzioni terminate appariranno qui!</p>
+    <br>
+    <a href="/"><button>📚 Vai alle Ricette</button></a>
+  </div>
+{% else %}
+  <div class="stats-summary">
+    <div class="stat-card">
+      <div class="stat-value">{{ esecuzioni|length }}</div>
+      <div class="stat-label">Produzioni Completate</div>
+    </div>
+  </div>
+  
+  {% for e in esecuzioni %}
+    <div class="card">
+      {% if e.foto %}
+        <img src="/static/uploads/{{ e.foto }}" alt="{{ e.nome_ricetta }}">
+      {% endif %}
+      
+      <h2>{{ e.nome_ricetta }}</h2>
+      <span class="completion-badge">✓ Completata</span>
+      
+      <div class="production-dates">
+        <div class="date-item">
+          <span class="date-label">📅 Data Inizio</span>
+          <span class="date-value">
+            {% if e.data_inizio %}
+              {{ e.data_inizio[:10] }}
+            {% else %}
+              N/D
+            {% endif %}
+          </span>
+        </div>
+        
+        <div class="date-item">
+          <span class="date-label">🏁 Data Fine</span>
+          <span class="date-value">
+            {% if e.data_fine %}
+              {{ e.data_fine[:10] }}
+            {% else %}
+              N/D
+            {% endif %}
+          </span>
+        </div>
+        
+        <div class="date-item">
+          <span class="date-label">⏱️ Durata Totale</span>
+          <span class="date-value">
+            {% if e.data_inizio and e.data_fine %}
+              {% set start = e.data_inizio[:10] %}
+              {% set end = e.data_fine[:10] %}
+              <span class="duration-badge">
+                Calcolo in corso
+              </span>
+            {% else %}
+              N/D
+            {% endif %}
+          </span>
+        </div>
+      </div>
+      
+      {% if e.note %}
+      <div class="note-section">
+        <strong>📝 Note della Produzione:</strong><br>
+        {{ e.note }}
+      </div>
+      {% endif %}
+    </div>
+  {% endfor %}
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Calcola durata per ogni produzione
+  document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.card');
+    
+    cards.forEach(card => {
+      const dateItems = card.querySelectorAll('.date-value');
+      if (dateItems.length >= 2) {
+        const startDate = dateItems[0].textContent.trim();
+        const endDate = dateItems[1].textContent.trim();
+        
+        if (startDate !== 'N/D' && endDate !== 'N/D') {
+          const start = new Date(startDate);
+          const end = new Date(endDate);
+          const diffTime = Math.abs(end - start);
+          const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+          
+          const durationBadge = card.querySelector('.duration-badge');
+          if (durationBadge) {
+            durationBadge.textContent = diffDays + (diffDays === 1 ? ' giorno' : ' giorni');
+          }
+        }
+      }
+    });
+  });
+</script>
+{% endblock %}

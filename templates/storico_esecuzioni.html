@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <title>Storico Esecuzioni 🍺</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style>
+    body { background:#121212; color:#e0e0e0; font-family:'Inter',sans-serif; margin:0;}
+    header { background:#1e1e1e; padding:15px 30px; display:flex; justify-content:space-between; align-items:center; box-shadow:0 2px 6px rgba(0,0,0,0.5);}
+    header h1 { color:#f39c12; margin:0;}
+    nav a { color:#e0e0e0; text-decoration:none; margin-left:15px;}
+    nav a:hover { color:#f39c12;}
+    main { padding:20px; max-width:900px; margin:auto;}
+    .card { background:#1e1e1e; border-radius:12px; padding:20px; margin-bottom:20px; box-shadow:0 2px 6px rgba(0,0,0,0.5);}
+    img { width:100%; border-radius:8px; max-height:250px; object-fit:cover; margin-top:10px;}
+    .progress { height:10px; border-radius:6px; background:#333; margin-top:10px; overflow:hidden;}
+    .progress-bar { height:10px; background:#f39c12; width:0; transition:width 1s linear;}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>📋 Storico Esecuzioni</h1>
+    <nav><a href="/">🏠 Home</a><a href="/aggiungi">+ Nuova Ricetta</a></nav>
+  </header>
+  <main>
+    {% for e in esecuzioni %}
+      <div class="card">
+        {% if e.foto %}<img src="/static/uploads/{{ e.foto }}" alt="foto">{% endif %}
+        <h2>{{ e.nome_ricetta }}</h2>
+        <small>Stato: {{ e.stato }}</small><br>
+        <small>Inizio: {{ e.data_inizio or 'N/D' }}</small><br>
+        {% if e.data_fine %}
+        <small>Fine prevista: {{ e.data_fine }}</small><br>
+        {% else %}
+        <small>Fine prevista: N/D</small><br>
+        {% endif %}
+        <small>Note: {{ e.note }}</small>
+        <div class="progress"><div class="progress-bar" id="bar{{ loop.index }}"></div></div>
+      </div>
+    {% endfor %}
+  </main>
+  <script>
+  const esecuzioni = {{ esecuzioni|tojson }};
+  const now = new Date().getTime();
+
+  esecuzioni.forEach((e, idx) => {
+    const bar = document.getElementById('bar' + (idx + 1));
+    if (!bar) return;
+    const start = e.data_inizio ? new Date(e.data_inizio).getTime() : now;
+    const end = e.data_fine ? new Date(e.data_fine).getTime() : start;
+    const progress = Math.min(100, Math.max(0, ((now - start) / (end - start)) * 100));
+    bar.style.width = progress + '%';
+  });
+</script>
+</body>
+</html>

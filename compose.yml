@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  # Database MongoDB
+  mongodb:
+    image: mongo:7.0
+    container_name: mongodb_container
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - app_network
+
+  # Applicazione Python
+  python_app:
+    build: .
+    container_name: python_app_container
+    depends_on:
+      - mongodb
+    environment:
+      MONGO_HOST: mongodb
+      MONGO_PORT: 27017
+      MONGO_USER: admin
+      MONGO_PASSWORD: password123
+    ports:
+      - "5000:5000"  # Mappa porta host 5000 -> container 5000
+    networks:
+      - app_network
+
+# Rete per far comunicare i container
+networks:
+  app_network:
+    driver: bridge
+
+# Volume per persistere i dati di MongoDB
+volumes:
+  mongodb_data:

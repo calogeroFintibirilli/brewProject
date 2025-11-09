@@ -1,0 +1,508 @@
+{% extends "base.html" %}
+
+{% block title %}{{ esecuzione.nome_ricetta }} - Monitoraggio{% endblock %}
+{% block header %}⚗️ {{ esecuzione.nome_ricetta }}{% endblock %}
+
+{% block extra_styles %}
+<style>
+  .detail-container {
+    max-width: 1000px;
+    margin: 0 auto;
+  }
+  
+  .hero-card {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  }
+  
+  .hero-card img {
+    width: 100%;
+    border-radius: 8px;
+    max-height: 300px;
+    object-fit: cover;
+    margin-bottom: 20px;
+  }
+  
+  .hero-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: start;
+    margin-bottom: 20px;
+  }
+  
+  .hero-title h1 {
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+  
+  .status-badge {
+    display: inline-block;
+    padding: 8px 16px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    background: rgba(76, 175, 80, 0.2);
+    color: #4CAF50;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+  }
+  
+  .progress-overview {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 20px;
+    margin: 20px 0;
+  }
+  
+  .progress-stat {
+    background: rgba(0,0,0,0.3);
+    padding: 20px;
+    border-radius: 8px;
+    text-align: center;
+  }
+  
+  .progress-value {
+    font-size: 2.5rem;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  
+  .progress-label {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  
+  .progress-bar-container {
+    width: 100%;
+    height: 12px;
+    background: #2a2a2a;
+    border-radius: 6px;
+    overflow: hidden;
+    margin: 20px 0;
+  }
+  
+  .progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent), #ffb74d);
+    transition: width 1s ease;
+    border-radius: 6px;
+  }
+  
+  /* Sezione Fasi */
+  .phases-section {
+    background: var(--surface);
+    border-radius: 12px;
+    padding: 30px;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+  }
+  
+  .section-title {
+    color: var(--accent);
+    font-size: 1.3rem;
+    margin-bottom: 25px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  
+  .phase-card {
+    background: rgba(0,0,0,0.3);
+    border-radius: 12px;
+    padding: 25px;
+    margin-bottom: 20px;
+    border-left: 4px solid #555;
+    transition: all 0.3s;
+  }
+  
+  .phase-card.active {
+    border-left-color: var(--accent);
+    background: rgba(243, 156, 18, 0.1);
+    box-shadow: 0 0 20px rgba(243, 156, 18, 0.2);
+  }
+  
+  .phase-card.completed {
+    border-left-color: #4CAF50;
+    opacity: 0.7;
+  }
+  
+  .phase-card.upcoming {
+    opacity: 0.5;
+  }
+  
+  .phase-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+  }
+  
+  .phase-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex: 1;
+  }
+  
+  .phase-number {
+    background: var(--accent);
+    color: #000;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 1.3rem;
+  }
+  
+  .phase-card.completed .phase-number {
+    background: #4CAF50;
+  }
+  
+  .phase-card.upcoming .phase-number {
+    background: #555;
+  }
+  
+  .phase-details h3 {
+    color: var(--text);
+    margin-bottom: 5px;
+  }
+  
+  .phase-meta {
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  
+  .phase-status {
+    text-align: right;
+  }
+  
+  .phase-timer {
+    font-family: 'Courier New', monospace;
+    font-size: 2rem;
+    color: var(--accent);
+    font-weight: 600;
+    margin-bottom: 5px;
+  }
+  
+  .phase-duration {
+    color: var(--muted);
+    font-size: 0.85rem;
+  }
+  
+  .timer-progress {
+    width: 100%;
+    height: 8px;
+    background: #2a2a2a;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 15px 0;
+  }
+  
+  .timer-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #4CAF50, #66BB6A);
+    transition: width 1s linear;
+    border-radius: 4px;
+  }
+  
+  .phase-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+  }
+  
+  button {
+    background: var(--accent);
+    border: none;
+    color: #000;
+    padding: 12px 24px;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+    font-size: 0.95rem;
+  }
+  
+  button:hover {
+    background: #ffb74d;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.3);
+  }
+  
+  button.success {
+    background: #4CAF50;
+    color: white;
+  }
+  
+  button.success:hover {
+    background: #66BB6A;
+  }
+  
+  button.danger {
+    background: #f44336;
+    color: white;
+  }
+  
+  button.danger:hover {
+    background: #e57373;
+  }
+  
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    transform: none;
+  }
+  
+  .completion-message {
+    text-align: center;
+    padding: 30px;
+    background: rgba(76, 175, 80, 0.1);
+    border: 2px solid #4CAF50;
+    border-radius: 12px;
+    margin: 20px 0;
+  }
+  
+  .completion-message h3 {
+    color: #4CAF50;
+    font-size: 1.5rem;
+    margin-bottom: 10px;
+  }
+  
+  .action-buttons {
+    display: flex;
+    gap: 15px;
+    margin-top: 30px;
+  }
+  
+  .back-button {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    color: var(--text);
+    text-decoration: none;
+    padding: 10px 20px;
+    background: #555;
+    border-radius: 8px;
+    transition: all 0.2s;
+  }
+  
+  .back-button:hover {
+    background: #666;
+    transform: translateX(-3px);
+  }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-container">
+  <a href="/in-corso" class="back-button">← Torna alle Produzioni</a>
+  
+  <!-- Hero Card -->
+  <div class="hero-card">
+    {% if esecuzione.foto %}
+      <img src="/static/uploads/{{ esecuzione.foto }}" alt="{{ esecuzione.nome_ricetta }}">
+    {% endif %}
+    
+    <div class="hero-header">
+      <div class="hero-title">
+        <h1>{{ esecuzione.nome_ricetta }}</h1>
+        <span class="status-badge">{{ esecuzione.stato }}</span>
+      </div>
+    </div>
+    
+    <div class="progress-overview">
+      <div class="progress-stat">
+        <div class="progress-value">{{ esecuzione.fase_corrente }}</div>
+        <div class="progress-label">Fase Corrente</div>
+      </div>
+      <div class="progress-stat">
+        <div class="progress-value">{{ esecuzione.fasi|length }}</div>
+        <div class="progress-label">Fasi Totali</div>
+      </div>
+      <div class="progress-stat">
+        <div class="progress-value" id="overallProgress">0%</div>
+        <div class="progress-label">Completamento</div>
+      </div>
+    </div>
+    
+    <div class="progress-bar-container">
+      <div class="progress-bar" id="mainProgressBar"></div>
+    </div>
+    
+    {% if esecuzione.note %}
+    <div style="margin-top: 20px; padding: 15px; background: rgba(0,0,0,0.3); border-radius: 8px;">
+      <strong style="color: var(--accent);">📝 Note:</strong> {{ esecuzione.note }}
+    </div>
+    {% endif %}
+  </div>
+  
+  <!-- Fasi -->
+  <div class="phases-section">
+    <div class="section-title">
+      📋 Fasi di Produzione
+    </div>
+    
+    {% for fase in esecuzione.fasi %}
+      <div class="phase-card {% if fase.numero == esecuzione.fase_corrente and not fase.completata %}active{% elif fase.completata %}completed{% elif fase.numero > esecuzione.fase_corrente %}upcoming{% endif %}" 
+           id="fase-{{ fase.numero }}">
+        
+        <div class="phase-header">
+          <div class="phase-info">
+            <span class="phase-number">{{ fase.numero }}</span>
+            <div class="phase-details">
+              <h3>{{ fase.descrizione }}</h3>
+              <div class="phase-meta">
+                Durata prevista: {{ fase.durata_originale }} {{ fase.unita_originale }}
+              </div>
+            </div>
+          </div>
+          
+          <div class="phase-status">
+            {% if fase.completata %}
+              <div style="color: #4CAF50; font-weight: 600; font-size: 1.2rem;">✓ Completata</div>
+              {% if fase.data_fine %}
+                <div class="phase-duration">{{ fase.data_fine[:16].replace('T', ' ') }}</div>
+              {% endif %}
+            {% elif fase.numero == esecuzione.fase_corrente %}
+              <div class="phase-timer" id="timer-{{ fase.numero }}">00:00:00</div>
+              <div class="phase-duration">Timer attivo</div>
+            {% else %}
+              <div style="color: var(--muted); font-weight: 600;">In attesa</div>
+            {% endif %}
+          </div>
+        </div>
+        
+        {% if fase.numero == esecuzione.fase_corrente and not fase.completata %}
+          <div class="timer-progress">
+            <div class="timer-progress-bar" id="progress-{{ fase.numero }}"></div>
+          </div>
+          
+          <div class="phase-actions">
+            {% if not fase.data_inizio %}
+              <button onclick="startPhase('{{ esecuzione.id }}', {{ fase.numero }})" style="flex: 1;">
+                ▶️ Inizia Fase
+              </button>
+            {% else %}
+              <button class="success" onclick="completePhase('{{ esecuzione.id }}', {{ fase.numero }})" style="flex: 1;">
+                ✓ Completa Fase
+              </button>
+            {% endif %}
+          </div>
+        {% endif %}
+        
+        {% if fase.completata and fase.numero == esecuzione.fasi|length %}
+          <div class="completion-message">
+            <h3>🎉 Tutte le fasi completate!</h3>
+            <p>La produzione è pronta per essere terminata</p>
+          </div>
+        {% endif %}
+      </div>
+    {% endfor %}
+  </div>
+  
+  <!-- Azioni Globali -->
+  <div class="phases-section">
+    <div class="action-buttons">
+      <form method="post" action="/termina/{{ esecuzione.id }}" style="flex: 1;">
+        <button type="submit" class="danger" style="width: 100%;" 
+                onclick="return confirm('Sei sicuro di voler completare questa produzione?')">
+          🏁 Termina Produzione
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const esecuzione = {{ esecuzione_json|safe }};
+  
+  function startPhase(esecuzioneId, faseNumero) {
+    fetch(`/fase/${esecuzioneId}/${faseNumero}/start`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'}
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();
+      }
+    })
+    .catch(err => console.error('Errore:', err));
+  }
+  
+  function completePhase(esecuzioneId, faseNumero) {
+    if (!confirm('Confermi di aver completato questa fase?')) return;
+    
+    fetch(`/fase/${esecuzioneId}/${faseNumero}/complete`, {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'}
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (data.success) {
+        location.reload();
+      }
+    })
+    .catch(err => console.error('Errore:', err));
+  }
+  
+  // Timer e progress per fase attiva
+  function updateActivePhaseTimer() {
+    const faseCorrente = esecuzione.fasi.find(f => 
+      f.numero === esecuzione.fase_corrente && !f.completata && f.data_inizio
+    );
+    
+    if (!faseCorrente) return;
+    
+    const timerEl = document.getElementById(`timer-${faseCorrente.numero}`);
+    const progressEl = document.getElementById(`progress-${faseCorrente.numero}`);
+    
+    if (!timerEl) return;
+    
+    const startTime = new Date(faseCorrente.data_inizio).getTime();
+    const now = Date.now();
+    const elapsed = Math.floor((now - startTime) / 1000);
+    
+    const hours = Math.floor(elapsed / 3600);
+    const minutes = Math.floor((elapsed % 3600) / 60);
+    const seconds = elapsed % 60;
+    
+    timerEl.textContent = 
+      `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+    
+    // Calcola progress rispetto alla durata prevista
+    if (progressEl && faseCorrente.durata_minuti) {
+      const durataSecondi = faseCorrente.durata_minuti * 60;
+      const progress = Math.min(100, (elapsed / durataSecondi) * 100);
+      progressEl.style.width = progress + '%';
+    }
+  }
+  
+  // Progress generale
+  function updateOverallProgress() {
+    const completedPhases = esecuzione.fasi.filter(f => f.completata).length;
+    const totalPhases = esecuzione.fasi.length;
+    const progress = totalPhases > 0 ? Math.round((completedPhases / totalPhases) * 100) : 0;
+    
+    document.getElementById('overallProgress').textContent = progress + '%';
+    document.getElementById('mainProgressBar').style.width = progress + '%';
+  }
+  
+  // Aggiorna ogni secondo
+  setInterval(() => {
+    updateActivePhaseTimer();
+  }, 1000);
+  
+  // Inizializza
+  updateActivePhaseTimer();
+  updateOverallProgress();
+</script>
+{% endblock %}
