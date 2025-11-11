@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Dettaglio {{ esecuzione.nome_ricetta }}{% endblock %}
+
+{% block extra_styles %}
+<style>
+.detail-container {
+  max-width: 900px;
+  margin: auto;
+  background: var(--surface);
+  border-radius: 16px;
+  padding: 30px;
+  box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+}
+.detail-header {
+  text-align: center;
+  margin-bottom: 25px;
+}
+.detail-header img {
+  max-height: 250px;
+  border-radius: 12px;
+  margin-bottom: 15px;
+}
+.kpi-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+  margin: 20px 0;
+}
+.kpi {
+  flex: 1 1 150px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 12px;
+  text-align: center;
+  padding: 15px;
+  color: var(--accent);
+  font-weight: 600;
+}
+.chart-container {
+  margin-top: 30px;
+}
+.fasi-list {
+  margin-top: 20px;
+}
+.fasi-list li {
+  background: rgba(255,255,255,0.05);
+  padding: 10px 15px;
+  border-radius: 8px;
+  margin-bottom: 10px;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="detail-container">
+  <div class="detail-header">
+    {% if esecuzione.foto %}
+      <img src="/static/uploads/{{ esecuzione.foto }}" alt="{{ esecuzione.nome_ricetta }}">
+    {% endif %}
+    <h2>{{ esecuzione.nome_ricetta }}</h2>
+    <p>Inizio: {{ esecuzione.data_inizio }} | Fine: {{ esecuzione.data_fine }}</p>
+  </div>
+
+  <div class="kpi-grid">
+    <div class="kpi">⏱️ Durata: {{ esecuzione.kpi.durata_ore or 'N/D' }}h</div>
+    <div class="kpi">⚙️ Fasi: {{ esecuzione.kpi.num_fasi }}</div>
+    <div class="kpi">📝 Note per fase: {{ esecuzione.kpi.note }}</div>
+  </div>
+
+  <div class="chart-container">
+    <canvas id="fasiChart"></canvas>
+  </div>
+
+  <div class="fasi-list">
+    <h3>Fasi di produzione</h3>
+    <ul>
+      {% for f in esecuzione.fasi %}
+      <li>
+        <strong>Fase {{ f.numero }}:</strong> {{ f.descrizione }}<br>
+        ⏳ Inizio: {{ f.data_inizio or "N/D" }} - Fine: {{ f.data_fine or "N/D" }}<br>
+        📝 {{ f.note or "Nessuna nota" }}
+      </li>
+      {% endfor %}
+    </ul>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+const fasi = {{ esecuzione.fasi | tojson }};
+const labels = fasi.map(f => "Fase " + f.numero);
+const durations = fasi.map(f => {
+  if (f.data_inizio && f.data_fine) {
+    const start = new Date(f.data_inizio);
+    const end = new Date(f.data_fine);
+    return Math.round((end - start) / 60000);
+  }
+  return 0;
+});
+
+new Chart(document.getElementById('fasiChart'), {
+  type: 'bar',
+  data: {
+    labels: labels,
+    datasets: [{
+      label: 'Durata fase (minuti)',
+      data: durations,
+      backgroundColor: 'rgba(0, 200, 255, 0.6)',
+      borderRadius: 8
+    }]
+  },
+  options: {
+    scales: { y: { beginAtZero: true } }
+  }
+});
+</script>
+{% endblock %}

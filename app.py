@@ -4,7 +4,6 @@ from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 from bson import ObjectId
 import json
-
 import os
 
 app = Flask(__name__)
@@ -32,9 +31,18 @@ def index():
     db = client['mio_database']
     ricette_coll = db['ricette']
 
-    # ✅ Mostra solo le ricette NON archiviate
-    ricette = list(ricette_coll.find({"$or": [{"archiviata": {"$exists": False}}, {"archiviata": False}]}))
-    total = ricette_coll.count_documents({"$or": [{"archiviata": {"$exists": False}}, {"archiviata": False}]})
+    ricette = list(ricette_coll.find({
+        "$or": [
+            {"archiviata": {"$exists": False}},
+            {"archiviata": False}
+        ]
+    }))
+    total = ricette_coll.count_documents({
+        "$or": [
+            {"archiviata": {"$exists": False}},
+            {"archiviata": False}
+        ]
+    })
 
     client.close()
     return render_template('index.html', ricette=ricette, total=total)
@@ -46,18 +54,15 @@ def elimina_ricetta(ricetta_id):
     ricette_coll = db['ricette']
     esecuzioni_coll = db['esecuzioni']
 
-    # Controlla se la ricetta è usata in qualche esecuzione
     in_uso = esecuzioni_coll.count_documents({"ricetta_id": ObjectId(ricetta_id)}) > 0
     conferma = request.form.get("conferma", "no")
 
     if in_uso and conferma == "no":
-        # Mostra pagina di conferma
         ricetta = ricette_coll.find_one({"_id": ObjectId(ricetta_id)})
         client.close()
         return render_template("conferma_elimina.html", ricetta=ricetta)
 
     if in_uso and conferma == "si":
-        # Segna la ricetta come archiviata (non cancellata)
         ricette_coll.update_one(
             {"_id": ObjectId(ricetta_id)},
             {"$set": {"archiviata": True}}
@@ -66,7 +71,6 @@ def elimina_ricetta(ricetta_id):
         client.close()
         return redirect(url_for('index'))
 
-    # Se non è usata, eliminiamola del tutto
     ricette_coll.delete_one({"_id": ObjectId(ricetta_id)})
     flash("✅ Ricetta eliminata definitivamente.")
     client.close()
@@ -81,25 +85,23 @@ def aggiungi_ricetta():
     if request.method == 'POST':
         nome = request.form['nome']
         stile = request.form.get('stile')
-        abv= float(request.form.get('abv', 0)) if request.form.get('abv', 0).isdigit()  else 0.0
-        ibu = int(request.form.get('ibu', 0))
-        
-        # Parsing ingredienti
-        ingredienti = []
-        for line in request.form['ingredienti'].strip().split('\n'):
-            if ':' in line:
-                nome_ing, quant_unita = line.split(':', 1)
-                parts = quant_unita.strip().split()
-                if len(parts) >= 2:
-                    quant = float(parts[0])
-                    unita = ' '.join(parts[1:])
-                    ingredienti.append({"nome": nome_ing.strip(), "quantita": quant, "unita": unita})
-        
-       
-        
+        abv = float(request.form.get('abv', 0) or 0)
+        ibu = int(request.form.get('ibu', 0) or 0)
+
+        ingredienti_json = request.form.get('ingredienti_json', '[]')
+        try:
+            ingredienti = json.loads(ingredienti_json)
+        except json.JSONDecodeError:
+            ingredienti = []
+            flash("Errore nella lettura degli ingredienti.", "error")
+
         fasi_json = request.form.get('fasi_json', '[]')
-        fasi = json.loads(fasi_json) if fasi_json else []
-        
+        try:
+            fasi = json.loads(fasi_json)
+        except json.JSONDecodeError:
+            fasi = []
+            flash("Errore nella lettura delle fasi di produzione.", "error")
+
         note = request.form.get('note', '')
 
         foto_filename = None
@@ -117,9 +119,10 @@ def aggiungi_ricetta():
             "abv": abv,
             "ibu": ibu,
             "ingredienti": ingredienti,
-            "fasi": fasi,  # Sostituisce "istruzioni"
+            "fasi": fasi,
             "note": note,
-            "foto": foto_filename
+            "foto": foto_filename,
+            "data_creazione": datetime.now()
         }
 
         ricette_coll.insert_one(ricetta)
@@ -136,13 +139,13 @@ def esegui_ricetta(ricetta_id):
     db = client['mio_database']
     esecuzioni_coll = db['esecuzioni']
     ricette_coll = db['ricette']
+
     ricetta = ricette_coll.find_one({"_id": ObjectId(ricetta_id)})
     if not ricetta:
         flash('Ricetta non trovata!')
         client.close()
         return redirect(url_for('index'))
 
-    # Crea fasi per l'esecuzione
     fasi_esecuzione = []
     for fase in ricetta.get("fasi", []):
         fasi_esecuzione.append({
@@ -151,7 +154,8 @@ def esegui_ricetta(ricetta_id):
             "durata_minuti": fase.get("durata_minuti", 0),
             "completata": False,
             "data_inizio": None,
-            "data_fine": None
+            "data_fine": None,
+            "note": ""  # campo note per fase
         })
 
     esecuzione = {
@@ -163,6 +167,7 @@ def esegui_ricetta(ricetta_id):
         "fase_corrente": 1,
         "note": request.form.get('note_esecuzione', '')
     }
+
     esecuzioni_coll.insert_one(esecuzione)
     flash('Esecuzione avviata con successo!')
     client.close()
@@ -177,26 +182,47 @@ def in_corso():
 
     esecuzioni = list(esecuzioni_coll.find({"stato": "In Corso"}).sort("data_inizio", -1))
     result = []
+
     for e in esecuzioni:
         ricetta = ricette_coll.find_one({"_id": e["ricetta_id"]})
 
         fasi_norm = []
         for f in e.get("fasi", []):
-            data_fine = f.get("data_fine")
+            data_inizio_f = f.get("data_inizio")
+            data_fine_f = f.get("data_fine")
+
+            # Se sono datetime li formatto, se sono già stringhe li lascio
+            if isinstance(data_inizio_f, datetime):
+                data_inizio_str = data_inizio_f.strftime('%Y-%m-%dT%H:%M:%SZ')
+            else:
+                data_inizio_str = data_inizio_f or ""
+
+            if isinstance(data_fine_f, datetime):
+                data_fine_str = data_fine_f.strftime('%Y-%m-%dT%H:%M:%S')
+            else:
+                data_fine_str = data_fine_f or ""
+
             fasi_norm.append({
                 "numero": f.get("numero"),
                 "descrizione": f.get("descrizione", ""),
                 "durata_minuti": int(f.get("durata_minuti", 0)) if f.get("durata_minuti") else 0,
                 "completata": bool(f.get("completata", False)),
-                "data_inizio": f.get("data_inizio").strftime('%Y-%m-%dT%H:%M:%SZ') if f.get("data_inizio") else "",
-                "data_fine": data_fine.strftime('%Y-%m-%dT%H:%M:%S') if data_fine else ""
+                "data_inizio": data_inizio_str,
+                "data_fine": data_fine_str,
+                "note": f.get("note", "")
             })
+
+        data_inizio_esec = e.get("data_inizio")
+        if isinstance(data_inizio_esec, datetime):
+            data_inizio_esec_str = data_inizio_esec.strftime('%Y-%m-%dT%H:%M:%SZ')
+        else:
+            data_inizio_esec_str = data_inizio_esec or ""
 
         result.append({
             "id": str(e["_id"]),
             "nome_ricetta": ricetta["nome"] if ricetta else "Sconosciuta",
             "foto": ricetta.get("foto") if ricetta else None,
-            "data_inizio": f.get("data_inizio").strftime('%Y-%m-%dT%H:%M:%SZ') if f.get("data_inizio") else "",
+            "data_inizio": data_inizio_esec_str,
             "note": e.get("note", ""),
             "stato": e.get("stato", "N/D"),
             "fasi": fasi_norm,
@@ -206,7 +232,6 @@ def in_corso():
     client.close()
     return render_template('in_corso.html', esecuzioni=result)
 
-
 @app.route('/storico')
 def storico():
     client = connect_to_mongodb()
@@ -214,7 +239,26 @@ def storico():
     esecuzioni_coll = db['esecuzioni']
     ricette_coll = db['ricette']
 
-    esecuzioni = list(esecuzioni_coll.find({"stato": "Completata"}).sort("data_fine", -1))
+    nome_ricetta = request.args.get('nome_ricetta', '').strip()
+    data_filtro = request.args.get('data', '').strip()
+
+    query = {"stato": "Completata"}
+    if nome_ricetta:
+        ricetta = ricette_coll.find_one({"nome": {"$regex": nome_ricetta, "$options": "i"}})
+        if ricetta:
+            query["ricetta_id"] = ricetta["_id"]
+        else:
+            query["ricetta_id"] = None
+
+    if data_filtro:
+        try:
+            data_obj = datetime.strptime(data_filtro, "%Y-%m-%d")
+            giorno_successivo = data_obj + timedelta(days=1)
+            query["data_inizio"] = {"$gte": data_obj, "$lt": giorno_successivo}
+        except ValueError:
+            pass
+
+    esecuzioni = list(esecuzioni_coll.find(query).sort("data_fine", -1))
     result = []
     for e in esecuzioni:
         ricetta = ricette_coll.find_one({"_id": e["ricetta_id"]})
@@ -222,20 +266,60 @@ def storico():
             "id": str(e["_id"]),
             "nome_ricetta": ricetta["nome"] if ricetta else "Sconosciuta",
             "foto": ricetta.get("foto") if ricetta else None,
-            "data_inizio": e["data_inizio"].isoformat() if "data_inizio" in e else None,
-            "data_fine": e["data_fine"].isoformat() if "data_fine" in e else None,
-            "note": e.get("note", ""),
-            "stato": e.get("stato", "N/D")
+            "data_inizio": e.get("data_inizio").strftime("%Y-%m-%d %H:%M") if e.get("data_inizio") else "N/D",
+            "data_fine": e.get("data_fine").strftime("%Y-%m-%d %H:%M") if e.get("data_fine") else "N/D",
         })
+
     client.close()
-    return render_template('storico.html', esecuzioni=result)
+    return render_template('storico.html', esecuzioni=result, nome_ricetta=nome_ricetta, data_filtro=data_filtro)
+
+
+@app.route('/storico/<esecuzione_id>')
+def dettaglio_storico(esecuzione_id):
+    client = connect_to_mongodb()
+    db = client['mio_database']
+    esecuzioni_coll = db['esecuzioni']
+    ricette_coll = db['ricette']
+
+    e = esecuzioni_coll.find_one({"_id": ObjectId(esecuzione_id)})
+    if not e:
+        flash("Esecuzione non trovata.")
+        return redirect(url_for('storico'))
+
+    ricetta = ricette_coll.find_one({"_id": e["ricetta_id"]})
+
+    # calcolo KPI base
+    durata = None
+    if e.get("data_inizio") and e.get("data_fine"):
+        durata = (e["data_fine"] - e["data_inizio"]).total_seconds() / 3600  # ore
+
+    kpi = {
+        "durata_ore": round(durata, 2) if durata else None,
+        "num_fasi": len(e.get("fasi", [])),
+        "note": len([f for f in e.get("fasi", []) if f.get("note")]),
+    }
+
+    data = {
+        "id": str(e["_id"]),
+        "nome_ricetta": ricetta["nome"] if ricetta else "Sconosciuta",
+        "foto": ricetta.get("foto") if ricetta else None,
+        "data_inizio": e.get("data_inizio").strftime("%Y-%m-%d %H:%M") if e.get("data_inizio") else "N/D",
+        "data_fine": e.get("data_fine").strftime("%Y-%m-%d %H:%M") if e.get("data_fine") else "N/D",
+        "note": e.get("note", ""),
+        "fasi": e.get("fasi", []),
+        "kpi": kpi
+    }
+
+    client.close()
+    return render_template('storico_dettaglio.html', esecuzione=data)
+
 
 @app.route('/termina/<esecuzione_id>', methods=['POST'])
 def termina_esecuzione(esecuzione_id):
     client = connect_to_mongodb()
     db = client['mio_database']
     esecuzioni_coll = db['esecuzioni']
-    
+
     esecuzioni_coll.update_one(
         {"_id": ObjectId(esecuzione_id)},
         {
@@ -254,7 +338,7 @@ def start_fase(esecuzione_id, fase_numero):
     client = connect_to_mongodb()
     db = client['mio_database']
     esecuzioni_coll = db['esecuzioni']
-    
+
     esecuzioni_coll.update_one(
         {"_id": ObjectId(esecuzione_id), "fasi.numero": fase_numero},
         {
@@ -264,6 +348,7 @@ def start_fase(esecuzione_id, fase_numero):
             }
         }
     )
+
     client.close()
     return jsonify({"success": True})
 
@@ -283,7 +368,6 @@ def complete_fase(esecuzione_id, fase_numero):
         }
     )
 
-    # 🔁 Passa alla fase successiva, se esiste
     esecuzione = esecuzioni_coll.find_one({"_id": ObjectId(esecuzione_id)})
     if esecuzione and fase_numero < len(esecuzione["fasi"]):
         esecuzioni_coll.update_one(
@@ -293,11 +377,35 @@ def complete_fase(esecuzione_id, fase_numero):
     else:
         esecuzioni_coll.update_one(
             {"_id": ObjectId(esecuzione_id)},
-            {"$set": {"stato": "Completata", "data_fine": datetime.now()}}
+            {"$set": {
+                "stato": "Completata",
+                "data_fine": datetime.now()
+            }}
         )
 
     client.close()
     return jsonify({"success": True})
+
+# ✅ NUOVO: salvataggio note per singola fase
+@app.route('/fase/<esecuzione_id>/<int:fase_numero>/note', methods=['POST'])
+def save_fase_note(esecuzione_id, fase_numero):
+    client = connect_to_mongodb()
+    db = client['mio_database']
+    esecuzioni_coll = db['esecuzioni']
+
+    data = request.get_json(silent=True) or {}
+    nota = data.get("note", "")
+
+    res = esecuzioni_coll.update_one(
+        {"_id": ObjectId(esecuzione_id), "fasi.numero": fase_numero},
+        {"$set": {"fasi.$.note": nota}}
+    )
+
+    client.close()
+
+    if res.matched_count:
+        return jsonify(success=True)
+    return jsonify(success=False), 404
 
 @app.route('/esecuzione/<esecuzione_id>')
 def dettaglio_esecuzione(esecuzione_id):
@@ -305,15 +413,15 @@ def dettaglio_esecuzione(esecuzione_id):
     db = client['mio_database']
     esecuzioni_coll = db['esecuzioni']
     ricette_coll = db['ricette']
-    
+
     esecuzione = esecuzioni_coll.find_one({"_id": ObjectId(esecuzione_id)})
     if not esecuzione:
         flash('Esecuzione non trovata!')
         client.close()
         return redirect(url_for('in_corso'))
-    
+
     ricetta = ricette_coll.find_one({"_id": esecuzione["ricetta_id"]})
-    
+
     result = {
         "id": str(esecuzione["_id"]),
         "nome_ricetta": ricetta["nome"] if ricetta else "Sconosciuta",
@@ -325,17 +433,15 @@ def dettaglio_esecuzione(esecuzione_id):
         "fasi": esecuzione.get("fasi", []),
         "fase_corrente": esecuzione.get("fase_corrente", 1)
     }
-    
-    # Converti datetime in ISO format per fasi
+
     for fase in result["fasi"]:
-        if fase.get("data_inizio"):
+        if isinstance(fase.get("data_inizio"), datetime):
             fase["data_inizio"] = fase["data_inizio"].isoformat()
-        if fase.get("data_fine"):
+        if isinstance(fase.get("data_fine"), datetime):
             fase["data_fine"] = fase["data_fine"].isoformat()
-    
-    import json
+
     esecuzione_json = json.dumps(result)
-    
+
     client.close()
     return render_template('dettaglio_esecuzione.html', esecuzione=result, esecuzione_json=esecuzione_json)
 
@@ -345,13 +451,11 @@ def storico_ricette():
     db = client['mio_database']
     ricette_coll = db['ricette']
 
-    # Prendi solo le ricette archiviate
     archiviate = list(ricette_coll.find({"archiviata": True}))
     total = ricette_coll.count_documents({"archiviata": True})
 
     client.close()
     return render_template('storico_ricette.html', ricette=archiviate, total=total)
-
 
 if __name__ == "__main__":
     app.run(host='0.0.0.0', port=5000, debug=False)

@@ -71,8 +71,9 @@
     min-height: 100px;
   }
   
-  /* Tabella Fasi */
-  .phases-table-container { overflow-x: auto;
+  /* Tabelle Ingredienti / Fasi */
+  .phases-table-container {
+    overflow-x: auto;
     background: #1a1a1a;
     border-radius: 8px;
     padding: 20px;
@@ -105,7 +106,7 @@
     background: rgba(243, 156, 18, 0.05);
   }
   
-  .phases-table input {
+  .phases-table input, .phases-table select {
     padding: 8px 10px;
     font-size: 0.9rem;
   }
@@ -154,7 +155,7 @@
     transform: translateY(-1px);
   }
   
-  .btn-remove-phase {
+  .btn-remove-phase, .btn-remove-ingredient {
     background: #f44336;
     border: none;
     color: white;
@@ -164,7 +165,7 @@
     font-size: 0.85rem;
   }
   
-  .btn-remove-phase:hover {
+  .btn-remove-phase:hover, .btn-remove-ingredient:hover {
     background: #e57373;
   }
   
@@ -257,7 +258,6 @@
     color: #f44336;
   }
 
-  /* Responsive */
   @media (max-width: 900px) {
     .form-card { padding: 20px; }
     .form-row { grid-template-columns: 1fr; }
@@ -271,7 +271,6 @@
     button[type="submit"], button.secondary { width: 100%; }
   }
 </style>
-
 {% endblock %}
 
 {% block content %}
@@ -326,26 +325,50 @@
       <!-- Ingredienti -->
       <div class="form-section">
         <div class="section-title">🌾 Ingredienti</div>
-        
-        <div class="form-group">
-          <label>Lista Ingredienti <span class="required">*</span></label>
-          <textarea name="ingredienti" rows="8" required placeholder="Inserisci un ingrediente per riga nel formato:
-Nome: quantità unità
 
-Esempio:
-Malto Pale: 5 kg
-Luppolo Cascade: 50 g
-Lievito US-05: 11.5 g"></textarea>
-          <div class="helper-text">
-            Formato: Nome: quantità unità (uno per riga)
-          </div>
+        <div class="phases-table-container">
+          <table class="phases-table" id="ingredientsTable">
+            <thead>
+              <tr>
+                <th style="width: 60px;">#</th>
+                <th>Nome Ingrediente</th>
+                <th style="width: 150px;">Quantità</th>
+                <th style="width: 150px;">Unità</th>
+                <th style="width: 80px;">Azioni</th>
+              </tr>
+            </thead>
+            <tbody id="ingredientsTableBody">
+              <tr data-ingredient-index="1">
+                <td><span class="phase-number">1</span></td>
+                <td><input type="text" class="ingredient-name" placeholder="Es: Malto Pale" required></td>
+                <td><input type="number" class="ingredient-amount" step="0.01" min="0" placeholder="5" required></td>
+                <td>
+                  <select class="ingredient-unit">
+                    <option value="kg">kg</option>
+                    <option value="g">g</option>
+                    <option value="l">l</option>
+                    <option value="ml">ml</option>
+                    <option value="pz">pz</option>
+                  </select>
+                </td>
+                <td>
+                  <button type="button" class="btn-remove-ingredient" onclick="removeIngredient(1)" disabled>🗑️</button>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+
+          <button type="button" class="btn-add-phase" id="btnAddIngredient">
+            ➕ Aggiungi Ingrediente
+          </button>
         </div>
+
+        <input type="hidden" name="ingredienti_json" id="ingredientiJson">
       </div>
       
-      <!-- Fasi di Produzione - NUOVA GESTIONE TABELLARE -->
+      <!-- Fasi di Produzione -->
       <div class="form-section">
         <div class="section-title">⚗️ Fasi di Produzione</div>
-        
         <div class="phases-table-container">
           <table class="phases-table" id="phasesTable">
             <thead>
@@ -359,9 +382,7 @@ Lievito US-05: 11.5 g"></textarea>
             <tbody id="phasesTableBody">
               <tr data-phase-index="1">
                 <td><span class="phase-number">1</span></td>
-                <td>
-                  <input type="text" class="phase-description" placeholder="Es: Ammostamento a 67°C" required>
-                </td>
+                <td><input type="text" class="phase-description" placeholder="Es: Ammostamento a 67°C" required></td>
                 <td>
                   <div class="time-input-group">
                     <input type="number" class="phase-duration" min="0" placeholder="60" required>
@@ -372,32 +393,23 @@ Lievito US-05: 11.5 g"></textarea>
                     </select>
                   </div>
                 </td>
-                <td>
-                  <button type="button" class="btn-remove-phase" onclick="removePhase(1)" disabled>🗑️</button>
-                </td>
+                <td><button type="button" class="btn-remove-phase" onclick="removePhase(1)" disabled>🗑️</button></td>
               </tr>
             </tbody>
           </table>
-          
+
           <button type="button" class="btn-add-phase" id="btnAddPhase">
             ➕ Aggiungi Fase
           </button>
         </div>
-        
-        <!-- Hidden input per inviare i dati al server -->
+
         <input type="hidden" name="fasi_json" id="fasiJson">
-        
-        <div class="helper-text" style="margin-top: 10px;">
-          Le fasi verranno eseguite nell'ordine in cui sono inserite
-        </div>
       </div>
       
       <!-- Note -->
       <div class="form-section">
         <div class="section-title">📝 Note Aggiuntive</div>
-        
         <div class="form-group">
-          <label>Note</label>
           <textarea name="note" rows="4" placeholder="Aggiungi note, suggerimenti o varianti alla ricetta..."></textarea>
         </div>
       </div>
@@ -405,15 +417,10 @@ Lievito US-05: 11.5 g"></textarea>
       <!-- Pulsanti -->
       <div class="button-group">
         <a href="/" style="flex: 0.3; text-decoration: none;">
-          <button type="button" class="secondary" style="width: 100%;">
-            ← Annulla
-          </button>
+          <button type="button" class="secondary" style="width: 100%;">← Annulla</button>
         </a>
-        <button type="submit">
-          💾 Salva Ricetta
-        </button>
+        <button type="submit">💾 Salva Ricetta</button>
       </div>
-      
     </form>
   </div>
 </div>
@@ -422,6 +429,7 @@ Lievito US-05: 11.5 g"></textarea>
 {% block scripts %}
 <script>
 (function() {
+  // Gestione Fasi Produzione (come prima)
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', init);
   } else {
@@ -429,129 +437,184 @@ Lievito US-05: 11.5 g"></textarea>
   }
 
   function init() {
-    console.log('[aggiungi] init');
-
     const tableBody = document.getElementById('phasesTableBody');
     const addBtn = document.getElementById('btnAddPhase');
     const fasiHidden = document.getElementById('fasiJson');
-    if (!tableBody || !addBtn || !fasiHidden) {
-      console.error('Elemento mancante:', { tableBody, addBtn, fasiHidden });
-      return;
-    }
-
     let phaseCounter = tableBody.querySelectorAll('tr').length;
 
     function renumberPhases() {
       const rows = tableBody.querySelectorAll('tr');
       rows.forEach((row, idx) => {
         const n = idx + 1;
-        row.setAttribute('data-phase-index', n);
-        const num = row.querySelector('.phase-number');
-        if (num) num.textContent = String(n);
-        const btn = row.querySelector('.btn-remove-phase');
-        if (btn) btn.setAttribute('data-index', n);
+        row.dataset.phaseIndex = n;
+        row.querySelector('.phase-number').textContent = n;
+        row.querySelector('.btn-remove-phase').dataset.index = n;
       });
       phaseCounter = rows.length;
     }
 
     function updateRemoveButtons() {
       const rows = tableBody.querySelectorAll('tr');
-      rows.forEach(row => {
-        const btn = row.querySelector('.btn-remove-phase');
-        if (btn) btn.disabled = (rows.length === 1);
-      });
+      rows.forEach(row => row.querySelector('.btn-remove-phase').disabled = rows.length === 1);
     }
 
     function createRow(n) {
       const tr = document.createElement('tr');
-      tr.setAttribute('data-phase-index', n);
+      tr.dataset.phaseIndex = n;
       tr.innerHTML = `
         <td><span class="phase-number">${n}</span></td>
-        <td>
-          <input type="text" class="phase-description" placeholder="Descrizione fase" required>
-        </td>
-        <td>
-          <div class="time-input-group">
-            <input type="number" class="phase-duration" min="0" placeholder="60" required>
-            <select class="phase-unit">
-              <option value="minuti">min</option>
-              <option value="ore">ore</option>
-              <option value="giorni">giorni</option>
-            </select>
-          </div>
-        </td>
-        <td>
-          <button type="button" class="btn-remove-phase" data-index="${n}">🗑️</button>
-        </td>
-      `;
+        <td><input type="text" class="phase-description" placeholder="Descrizione fase" required></td>
+        <td><div class="time-input-group">
+          <input type="number" class="phase-duration" min="0" placeholder="60" required>
+          <select class="phase-unit">
+            <option value="minuti">min</option>
+            <option value="ore">ore</option>
+            <option value="giorni">giorni</option>
+          </select>
+        </div></td>
+        <td><button type="button" class="btn-remove-phase" data-index="${n}">🗑️</button></td>`;
       return tr;
     }
 
     function addPhase() {
-      const next = phaseCounter + 1;
-      const row = createRow(next);
+      const row = createRow(++phaseCounter);
       tableBody.appendChild(row);
       renumberPhases();
       updateRemoveButtons();
-      console.log('[aggiungi] +fase', next);
     }
 
     function removePhaseByIndex(idx) {
       const row = tableBody.querySelector(`tr[data-phase-index="${idx}"]`);
-      if (row) {
-        row.remove();
-        renumberPhases();
-        updateRemoveButtons();
-        console.log('[aggiungi] -fase', idx);
-      }
+      if (row) row.remove();
+      renumberPhases();
+      updateRemoveButtons();
     }
 
-    // 🧩 Listener per il bottone “Aggiungi Fase”
     addBtn.addEventListener('click', addPhase);
-
-    // 🗑️ Rimozione fasi (delegation)
-    tableBody.addEventListener('click', (e) => {
+    tableBody.addEventListener('click', e => {
       const btn = e.target.closest('.btn-remove-phase');
-      if (btn) {
-        const idx = parseInt(btn.getAttribute('data-index'), 10);
-        removePhaseByIndex(idx);
-      }
+      if (btn) removePhaseByIndex(parseInt(btn.dataset.index));
     });
 
-    // 📦 Serializza le fasi al submit
-    window.prepareSubmit = function prepareSubmit() {
+    window.prepareSubmit = function() {
       const rows = tableBody.querySelectorAll('tr');
       const fasi = [];
-      for (let i = 0; i < rows.length; i++) {
-        const row = rows[i];
-        const desc = (row.querySelector('.phase-description')?.value || '').trim();
-        const dur  = parseInt(row.querySelector('.phase-duration')?.value || '0', 10);
-        const unit = row.querySelector('.phase-unit')?.value || 'minuti';
-        if (!desc || Number.isNaN(dur)) {
-          alert('Compila correttamente ogni fase (descrizione e durata).');
+      for (const [i, row] of rows.entries()) {
+        const desc = row.querySelector('.phase-description').value.trim();
+        const dur = parseInt(row.querySelector('.phase-duration').value);
+        const unit = row.querySelector('.phase-unit').value;
+        if (!desc || isNaN(dur)) {
+          alert('Compila correttamente ogni fase.');
           return false;
         }
         let durataMinuti = dur;
-        if (unit === 'ore') durataMinuti = dur * 60;
-        if (unit === 'giorni') durataMinuti = dur * 60 * 24;
-
-        fasi.push({
-          numero: i + 1,
-          descrizione: desc,
-          durata_minuti: durataMinuti,
-          durata_originale: dur,
-          unita_originale: unit
-        });
+        if (unit === 'ore') durataMinuti *= 60;
+        if (unit === 'giorni') durataMinuti *= 1440;
+        fasi.push({ numero: i + 1, descrizione: desc, durata_minuti: durataMinuti, durata_originale: dur, unita_originale: unit });
       }
       fasiHidden.value = JSON.stringify(fasi);
       return true;
     };
 
-    // Inizializza
     renumberPhases();
     updateRemoveButtons();
   }
 })();
 </script>
 
+<script>
+(function() {
+  // Gestione Ingredienti
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initIngredients);
+  } else {
+    initIngredients();
+  }
+
+  function initIngredients() {
+    const tableBody = document.getElementById('ingredientsTableBody');
+    const addBtn = document.getElementById('btnAddIngredient');
+    const hiddenInput = document.getElementById('ingredientiJson');
+    let counter = tableBody.querySelectorAll('tr').length;
+
+    function renumber() {
+      const rows = tableBody.querySelectorAll('tr');
+      rows.forEach((row, idx) => {
+        const n = idx + 1;
+        row.dataset.ingredientIndex = n;
+        row.querySelector('.phase-number').textContent = n;
+        row.querySelector('.btn-remove-ingredient').dataset.index = n;
+      });
+      counter = rows.length;
+    }
+
+    function updateRemoveButtons() {
+      const rows = tableBody.querySelectorAll('tr');
+      rows.forEach(row => row.querySelector('.btn-remove-ingredient').disabled = rows.length === 1);
+    }
+
+    function createRow(n) {
+      const tr = document.createElement('tr');
+      tr.dataset.ingredientIndex = n;
+      tr.innerHTML = `
+        <td><span class="phase-number">${n}</span></td>
+        <td><input type="text" class="ingredient-name" placeholder="Nome ingrediente" required></td>
+        <td><input type="number" class="ingredient-amount" step="0.01" min="0" placeholder="0" required></td>
+        <td>
+          <select class="ingredient-unit">
+            <option value="kg">kg</option>
+            <option value="g">g</option>
+            <option value="l">l</option>
+            <option value="ml">ml</option>
+            <option value="pz">pz</option>
+          </select>
+        </td>
+        <td><button type="button" class="btn-remove-ingredient" data-index="${n}">🗑️</button></td>`;
+      return tr;
+    }
+
+    function addIngredient() {
+      const row = createRow(++counter);
+      tableBody.appendChild(row);
+      renumber();
+      updateRemoveButtons();
+    }
+
+    function removeIngredientByIndex(idx) {
+      const row = tableBody.querySelector(`tr[data-ingredient-index="${idx}"]`);
+      if (row) row.remove();
+      renumber();
+      updateRemoveButtons();
+    }
+
+    addBtn.addEventListener('click', addIngredient);
+    tableBody.addEventListener('click', e => {
+      const btn = e.target.closest('.btn-remove-ingredient');
+      if (btn) removeIngredientByIndex(parseInt(btn.dataset.index));
+    });
+
+    const originalPrepare = window.prepareSubmit;
+    window.prepareSubmit = function() {
+      if (typeof originalPrepare === 'function' && !originalPrepare()) return false;
+      const rows = tableBody.querySelectorAll('tr');
+      const ingredienti = [];
+      for (const row of rows) {
+        const nome = row.querySelector('.ingredient-name').value.trim();
+        const quant = parseFloat(row.querySelector('.ingredient-amount').value);
+        const unita = row.querySelector('.ingredient-unit').value;
+        if (!nome || isNaN(quant)) {
+          alert('Compila correttamente tutti gli ingredienti.');
+          return false;
+        }
+        ingredienti.push({ nome, quantita: quant, unita });
+      }
+      hiddenInput.value = JSON.stringify(ingredienti);
+      return true;
+    };
+
+    renumber();
+    updateRemoveButtons();
+  }
+})();
+</script>
 {% endblock %}
