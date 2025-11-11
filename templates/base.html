@@ -4,202 +4,310 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}HomeBrewer Manager{% endblock %}</title>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <style>
     :root { 
-      --bg:#121212; 
-      --surface:#1e1e1e; 
-      --accent:#f39c12; 
-      --text:#e0e0e0; 
-      --muted:#aaa;
-      --sidebar-width: 250px;
+      --bg: #0a0a0a;
+      --surface: #1a1a1a;
+      --surface-hover: #242424;
+      --accent: #ffa726;
+      --accent-dark: #f57c00;
+      --accent-light: #ffb74d;
+      --text: #e8e8e8;
+      --text-secondary: #b0b0b0;
+      --muted: #808080;
+      --border: #2a2a2a;
+      --success: #66bb6a;
+      --danger: #ef5350;
+      --sidebar-width: 280px;
+      --topbar-height: 70px;
     }
     
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+    * { 
+      box-sizing: border-box; 
+      margin: 0; 
+      padding: 0; 
+    }
     
     body { 
-      background:var(--bg); 
-      color:var(--text); 
-      font-family:'Inter',sans-serif; 
-      display: flex;
-      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text); 
+      font-family: 'Inter', sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
     }
     
-    /* Sidebar */
+    /* === SIDEBAR === */
     .sidebar {
       width: var(--sidebar-width);
-      background: var(--surface);
+      background: linear-gradient(180deg, #1a1a1a 0%, #151515 100%);
       height: 100vh;
       position: fixed;
       left: 0;
       top: 0;
-      padding: 20px 0;
-      box-shadow: 2px 0 10px rgba(0,0,0,0.5);
+      padding: 0;
+      box-shadow: 4px 0 24px rgba(0, 0, 0, 0.6);
       overflow-y: auto;
+      overflow-x: hidden;
       z-index: 1000;
+      border-right: 1px solid var(--border);
+      transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    }
+    
+    .sidebar::-webkit-scrollbar { width: 6px; }
+    .sidebar::-webkit-scrollbar-track { background: transparent; }
+    .sidebar::-webkit-scrollbar-thumb {
+      background: var(--border);
+      border-radius: 3px;
     }
     
     .sidebar-header {
-      padding: 0 20px 20px;
-      border-bottom: 1px solid #333;
-      margin-bottom: 20px;
+      padding: 30px 25px 25px;
+      border-bottom: 1px solid var(--border);
+      background: linear-gradient(135deg, rgba(255, 167, 38, 0.1) 0%, transparent 100%);
+    }
+    
+    .sidebar-logo {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      margin-bottom: 8px;
+    }
+    
+    .logo-icon {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent) 0%, var(--accent-dark) 100%);
+      border-radius: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      box-shadow: 0 4px 12px rgba(255, 167, 38, 0.3);
     }
     
     .sidebar-header h1 {
-      color: var(--accent);
-      font-size: 1.3rem;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-    
-    .sidebar nav {
-      display: flex;
-      flex-direction: column;
-    }
-    
-    .sidebar nav a {
       color: var(--text);
+      font-size: 1.5rem;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+    }
+    
+    .sidebar-subtitle {
+      color: var(--muted);
+      font-size: 0.875rem;
+      padding-left: 63px;
+      margin-top: -5px;
+    }
+    
+    .sidebar-nav {
+      padding: 20px 0;
+    }
+    
+    .nav-section {
+      margin-bottom: 25px;
+    }
+    
+    .nav-section-title {
+      color: var(--muted);
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      padding: 0 25px 10px;
+    }
+    
+    .sidebar-nav a {
+      color: var(--text-secondary);
       text-decoration: none;
-      padding: 12px 20px;
+      padding: 14px 25px;
       display: flex;
       align-items: center;
-      gap: 10px;
-      transition: all 0.2s;
+      gap: 14px;
+      transition: all 0.2s ease;
       border-left: 3px solid transparent;
+      font-weight: 500;
     }
     
-    .sidebar nav a:hover {
-      background: rgba(243, 156, 18, 0.1);
+    .sidebar-nav a:hover {
+      background: var(--surface-hover);
+      color: var(--text);
       border-left-color: var(--accent);
-      color: var(--accent);
     }
     
-    .sidebar nav a.active {
-      background: rgba(243, 156, 18, 0.15);
+    .sidebar-nav a.active {
+      background: linear-gradient(90deg, rgba(255, 167, 38, 0.15) 0%, transparent 100%);
       border-left-color: var(--accent);
       color: var(--accent);
       font-weight: 600;
     }
     
-    /* Main Content */
-    .main-container {
-      margin-left: var(--sidebar-width);
-      flex: 1;
-      display: flex;
-      flex-direction: column;
-      min-height: 100vh;
+    .nav-icon {
+      font-size: 1.3rem;
+      width: 24px;
+      text-align: center;
     }
     
-    header {
+    /* === MAIN CONTAINER === */
+    .main-container {
+      margin-left: var(--sidebar-width);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg);
+    }
+    
+    /* === TOPBAR === */
+    .topbar {
+      height: var(--topbar-height);
       background: var(--surface);
-      padding: 15px 30px;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+      border-bottom: 1px solid var(--border);
+      padding: 0 30px;
+      display: flex;
+      align-items: center;
+      gap: 20px;
       position: sticky;
       top: 0;
       z-index: 100;
-    }
-    
-    header h2 {
-      color: var(--accent);
-      font-size: 1.5rem;
-    }
-    
-    main {
-      flex: 1;
-      padding: 30px;
-      max-width: 1200px;
-      width: 100%;
-    }
-    
-    .flash {
-      background: #222;
-      border-left: 4px solid var(--accent);
-      padding: 15px 20px;
-      border-radius: 8px;
-      margin-bottom: 20px;
-      animation: slideIn 0.3s ease-out;
-    }
-    
-    @keyframes slideIn {
-      from { transform: translateX(-20px); opacity: 0; }
-      to { transform: translateX(0); opacity: 1; }
-    }
-    
-    footer {
-      text-align: center;
-      color: var(--muted);
-      padding: 20px;
-      border-top: 1px solid #333;
-      background: var(--surface);
-    }
-    
-    /* Mobile responsive */
-    @media (max-width: 768px) {
-      :root { --sidebar-width: 0; }
-      
-      .sidebar {
-        transform: translateX(-100%);
-        transition: transform 0.3s;
-      }
-      
-      .sidebar.open {
-        transform: translateX(0);
-      }
-      
-      .main-container {
-        margin-left: 0;
-      }
-      
-      .menu-toggle {
-        display: block;
-        position: fixed;
-        top: 15px;
-        left: 15px;
-        z-index: 1001;
-        background: var(--accent);
-        border: none;
-        padding: 10px;
-        border-radius: 8px;
-        cursor: pointer;
-      }
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.4);
     }
     
     .menu-toggle {
       display: none;
+      background: none;
+      border: none;
+      color: var(--accent);
+      font-size: 1.5rem;
+      cursor: pointer;
+      padding: 8px;
+      border-radius: 8px;
     }
     
+    .topbar h2 {
+      color: var(--text);
+      font-size: 1.5rem;
+      font-weight: 600;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .page-icon { font-size: 1.6rem; }
+    
+    /* === MAIN CONTENT === */
+    main {
+      flex: 1;
+      padding: 35px;
+      max-width: 1400px;
+      width: 100%;
+      animation: fadeIn 0.3s ease;
+    }
+    
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    
+    /* === FLASH MESSAGES === */
+    .flash {
+      background: linear-gradient(135deg, var(--surface) 0%, #1f1f1f 100%);
+      border-left: 4px solid var(--accent);
+      padding: 18px 24px;
+      border-radius: 12px;
+      margin-bottom: 25px;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    
+    /* === FOOTER === */
+    footer {
+      text-align: center;
+      color: var(--muted);
+      padding: 25px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      font-size: 0.875rem;
+    }
+    
+    /* === RESPONSIVE === */
+    @media (max-width: 1024px) {
+      :root { --sidebar-width: 0; }
+      .sidebar { transform: translateX(-100%); }
+      .sidebar.open { transform: translateX(0); }
+      .main-container { margin-left: 0; }
+      .menu-toggle { display: block; }
+      .topbar { padding: 0 20px; }
+      main { padding: 25px 20px; }
+    }
+    
+    @media (max-width: 640px) {
+      .topbar { height: 60px; padding: 0 15px; }
+      main { padding: 20px 15px; }
+      .sidebar { width: 85%; max-width: 300px; }
+    }
+    
+    @media (max-width: 480px) {
+      main { padding: 16px 12px; }
+      .sidebar { width: 92%; }
+      .sidebar-header { padding: 22px 18px; }
+      .sidebar-nav a { padding: 12px 18px; }
+      .flash { padding: 14px 16px; }
+    }
+
     {% block extra_styles %}{% endblock %}
   </style>
 </head>
+
 <body>
-  <button class="menu-toggle" onclick="toggleSidebar()">☰</button>
-  
-  <!-- Sidebar -->
+  <div class="sidebar-overlay" id="sidebarOverlay"></div>
+
   <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
-      <h1>🍺 HomeBrewer</h1>
+      <div class="sidebar-logo">
+        <div class="logo-icon">🍺</div>
+        <h1>HomeBrewer</h1>
+      </div>
+      <div class="sidebar-subtitle">Gestione Produzioni</div>
     </div>
-    <nav>
-      <a href="/" class="{% if request.path == '/' %}active{% endif %}">
-        📚 Ricette
-      </a>
-      <a href="/in-corso" class="{% if request.path == '/in-corso' %}active{% endif %}">
-        ⚗️ In Corso
-      </a>
-      <a href="/storico" class="{% if request.path == '/storico' %}active{% endif %}">
-        ✅ Completate
-      </a>
-      <a href="/aggiungi" class="{% if request.path == '/aggiungi' %}active{% endif %}">
-        ➕ Nuova Ricetta
-      </a>
+    
+    <nav class="sidebar-nav">
+      <div class="nav-section">
+        <div class="nav-section-title">Menu Principale</div>
+        <a href="/" class="{% if request.path == '/' %}active{% endif %}">
+          <span class="nav-icon">📚</span>
+          <span>Le Mie Ricette</span>
+        </a>
+        <a href="/in-corso" class="{% if request.path == '/in-corso' %}active{% endif %}">
+          <span class="nav-icon">⚗️</span>
+          <span>Produzioni in Corso</span>
+        </a>
+        <a href="/storico" class="{% if request.path == '/storico' %}active{% endif %}">
+          <span class="nav-icon">✅</span>
+          <span>Storico Completate</span>
+        </a>
+        <a href="/storico_ricette" class="{% if request.path == '/storico_ricette' %}active{% endif %}">
+          <span class="nav-icon">🗂️</span>
+          <span>Ricette Archiviate</span>
+        </a>
+      </div>
+      
+      <div class="nav-section">
+        <div class="nav-section-title">Azioni</div>
+        <a href="/aggiungi" class="{% if request.path == '/aggiungi' %}active{% endif %}">
+          <span class="nav-icon">➕</span>
+          <span>Nuova Ricetta</span>
+        </a>
+      </div>
     </nav>
   </aside>
   
-  <!-- Main Content -->
   <div class="main-container">
-    <header>
-      <h2>{% block header %}HomeBrewer Manager{% endblock %}</h2>
+    <header class="topbar">
+      <button class="menu-toggle" id="menuToggle" aria-label="Toggle menu">☰</button>
+      <h2>
+        <span class="page-icon">{% block page_icon %}📖{% endblock %}</span>
+        {% block header %}HomeBrewer Manager{% endblock %}
+      </h2>
     </header>
     
     <main>
@@ -215,16 +323,50 @@
     </main>
     
     <footer>
-      © 2025 HomeBrewer Manager - Gestione Produzioni Birra
+      © 2025 HomeBrewer Manager - Gestione Produzioni Birra Artigianale
     </footer>
   </div>
   
   <script>
-    function toggleSidebar() {
-      document.getElementById('sidebar').classList.toggle('open');
-    }
-    
-    {% block scripts %}{% endblock %}
+    // Gestione Sidebar Mobile
+    (function() {
+      const sidebar = document.getElementById('sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const menuToggle = document.getElementById('menuToggle');
+      
+      function toggleSidebar() {
+        const isOpen = sidebar.classList.contains('open');
+        if (isOpen) {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+          document.body.style.overflow = '';
+        } else {
+          sidebar.classList.add('open');
+          overlay.classList.add('active');
+          document.body.style.overflow = 'hidden';
+        }
+      }
+      
+      function closeSidebar() {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+      
+      if (menuToggle) {
+        menuToggle.addEventListener('click', toggleSidebar);
+      }
+      if (overlay) {
+        overlay.addEventListener('click', closeSidebar);
+      }
+      document.querySelectorAll('.sidebar-nav a').forEach(a => {
+        a.addEventListener('click', () => {
+          if (window.innerWidth <= 1024) closeSidebar();
+        });
+      });
+    })();
   </script>
+
+  {% block scripts %}{% endblock %}
 </body>
 </html>

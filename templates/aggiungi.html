@@ -72,7 +72,7 @@
   }
   
   /* Tabella Fasi */
-  .phases-table-container {
+  .phases-table-container { overflow-x: auto;
     background: #1a1a1a;
     border-radius: 8px;
     padding: 20px;
@@ -256,7 +256,22 @@
   .required {
     color: #f44336;
   }
+
+  /* Responsive */
+  @media (max-width: 900px) {
+    .form-card { padding: 20px; }
+    .form-row { grid-template-columns: 1fr; }
+    .time-input-group { flex-wrap: wrap; }
+    .time-input-group input { width: 100px; }
+  }
+  @media (max-width: 480px) {
+    label { font-size: 0.85rem; }
+    input, textarea, select { padding: 10px 12px; font-size: 0.9rem; }
+    .button-group { flex-direction: column; }
+    button[type="submit"], button.secondary { width: 100%; }
+  }
 </style>
+
 {% endblock %}
 
 {% block content %}
@@ -364,7 +379,7 @@ Lievito US-05: 11.5 g"></textarea>
             </tbody>
           </table>
           
-          <button type="button" class="btn-add-phase" onclick="addPhase()">
+          <button type="button" class="btn-add-phase" id="btnAddPhase">
             ➕ Aggiungi Fase
           </button>
         </div>
@@ -406,115 +421,137 @@ Lievito US-05: 11.5 g"></textarea>
 
 {% block scripts %}
 <script>
-  let phaseCounter = 1;
-  
-  function previewImage(event) {
-    const file = event.target.files[0];
-    if (file) {
-      const preview = document.getElementById('preview');
-      const container = document.getElementById('previewContainer');
-      const label = document.querySelector('.file-input-label span:last-child');
-      
-      preview.src = URL.createObjectURL(file);
-      container.style.display = 'block';
-      label.textContent = file.name;
+(function() {
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', init);
+  } else {
+    init();
+  }
+
+  function init() {
+    console.log('[aggiungi] init');
+
+    const tableBody = document.getElementById('phasesTableBody');
+    const addBtn = document.getElementById('btnAddPhase');
+    const fasiHidden = document.getElementById('fasiJson');
+    if (!tableBody || !addBtn || !fasiHidden) {
+      console.error('Elemento mancante:', { tableBody, addBtn, fasiHidden });
+      return;
     }
-  }
-  
-  function addPhase() {
-    phaseCounter++;
-    const tbody = document.getElementById('phasesTableBody');
-    const newRow = document.createElement('tr');
-    newRow.setAttribute('data-phase-index', phaseCounter);
-    
-    newRow.innerHTML = `
-      <td><span class="phase-number">${phaseCounter}</span></td>
-      <td>
-        <input type="text" class="phase-description" placeholder="Descrizione fase" required>
-      </td>
-      <td>
-        <div class="time-input-group">
-          <input type="number" class="phase-duration" min="0" placeholder="60" required>
-          <select class="phase-unit">
-            <option value="minuti">min</option>
-            <option value="ore">ore</option>
-            <option value="giorni">giorni</option>
-          </select>
-        </div>
-      </td>
-      <td>
-        <button type="button" class="btn-remove-phase" onclick="removePhase(${phaseCounter})">🗑️</button>
-      </td>
-    `;
-    
-    tbody.appendChild(newRow);
-    updateRemoveButtons();
-  }
-  
-  function removePhase(index) {
-    const row = document.querySelector(`tr[data-phase-index="${index}"]`);
-    if (row) {
-      row.remove();
+
+    let phaseCounter = tableBody.querySelectorAll('tr').length;
+
+    function renumberPhases() {
+      const rows = tableBody.querySelectorAll('tr');
+      rows.forEach((row, idx) => {
+        const n = idx + 1;
+        row.setAttribute('data-phase-index', n);
+        const num = row.querySelector('.phase-number');
+        if (num) num.textContent = String(n);
+        const btn = row.querySelector('.btn-remove-phase');
+        if (btn) btn.setAttribute('data-index', n);
+      });
+      phaseCounter = rows.length;
+    }
+
+    function updateRemoveButtons() {
+      const rows = tableBody.querySelectorAll('tr');
+      rows.forEach(row => {
+        const btn = row.querySelector('.btn-remove-phase');
+        if (btn) btn.disabled = (rows.length === 1);
+      });
+    }
+
+    function createRow(n) {
+      const tr = document.createElement('tr');
+      tr.setAttribute('data-phase-index', n);
+      tr.innerHTML = `
+        <td><span class="phase-number">${n}</span></td>
+        <td>
+          <input type="text" class="phase-description" placeholder="Descrizione fase" required>
+        </td>
+        <td>
+          <div class="time-input-group">
+            <input type="number" class="phase-duration" min="0" placeholder="60" required>
+            <select class="phase-unit">
+              <option value="minuti">min</option>
+              <option value="ore">ore</option>
+              <option value="giorni">giorni</option>
+            </select>
+          </div>
+        </td>
+        <td>
+          <button type="button" class="btn-remove-phase" data-index="${n}">🗑️</button>
+        </td>
+      `;
+      return tr;
+    }
+
+    function addPhase() {
+      const next = phaseCounter + 1;
+      const row = createRow(next);
+      tableBody.appendChild(row);
       renumberPhases();
       updateRemoveButtons();
+      console.log('[aggiungi] +fase', next);
     }
-  }
-  
-  function renumberPhases() {
-    const rows = document.querySelectorAll('#phasesTableBody tr');
-    rows.forEach((row, index) => {
-      const phaseNumber = index + 1;
-      row.setAttribute('data-phase-index', phaseNumber);
-      row.querySelector('.phase-number').textContent = phaseNumber;
-      row.querySelector('.btn-remove-phase').setAttribute('onclick', `removePhase(${phaseNumber})`);
-    });
-    phaseCounter = rows.length;
-  }
-  
-  function updateRemoveButtons() {
-    const rows = document.querySelectorAll('#phasesTableBody tr');
-    rows.forEach(row => {
-      const btn = row.querySelector('.btn-remove-phase');
-      btn.disabled = rows.length === 1;
-    });
-  }
-  
-  function prepareSubmit() {
-    const rows = document.querySelectorAll('#phasesTableBody tr');
-    const fasi = [];
-    
-    rows.forEach((row, index) => {
-      const description = row.querySelector('.phase-description').value;
-      const duration = parseInt(row.querySelector('.phase-duration').value);
-      const unit = row.querySelector('.phase-unit').value;
-      
-      // Converti tutto in minuti per uniformità
-      let durataMinuti = duration;
-      if (unit === 'ore') {
-        durataMinuti = duration * 60;
-      } else if (unit === 'giorni') {
-        durataMinuti = duration * 60 * 24;
+
+    function removePhaseByIndex(idx) {
+      const row = tableBody.querySelector(`tr[data-phase-index="${idx}"]`);
+      if (row) {
+        row.remove();
+        renumberPhases();
+        updateRemoveButtons();
+        console.log('[aggiungi] -fase', idx);
       }
-      
-      fasi.push({
-        numero: index + 1,
-        descrizione: description,
-        durata_minuti: durataMinuti,
-        durata_originale: duration,
-        unita_originale: unit
-      });
+    }
+
+    // 🧩 Listener per il bottone “Aggiungi Fase”
+    addBtn.addEventListener('click', addPhase);
+
+    // 🗑️ Rimozione fasi (delegation)
+    tableBody.addEventListener('click', (e) => {
+      const btn = e.target.closest('.btn-remove-phase');
+      if (btn) {
+        const idx = parseInt(btn.getAttribute('data-index'), 10);
+        removePhaseByIndex(idx);
+      }
     });
-    
-    document.getElementById('fasiJson').value = JSON.stringify(fasi);
-    return true;
+
+    // 📦 Serializza le fasi al submit
+    window.prepareSubmit = function prepareSubmit() {
+      const rows = tableBody.querySelectorAll('tr');
+      const fasi = [];
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const desc = (row.querySelector('.phase-description')?.value || '').trim();
+        const dur  = parseInt(row.querySelector('.phase-duration')?.value || '0', 10);
+        const unit = row.querySelector('.phase-unit')?.value || 'minuti';
+        if (!desc || Number.isNaN(dur)) {
+          alert('Compila correttamente ogni fase (descrizione e durata).');
+          return false;
+        }
+        let durataMinuti = dur;
+        if (unit === 'ore') durataMinuti = dur * 60;
+        if (unit === 'giorni') durataMinuti = dur * 60 * 24;
+
+        fasi.push({
+          numero: i + 1,
+          descrizione: desc,
+          durata_minuti: durataMinuti,
+          durata_originale: dur,
+          unita_originale: unit
+        });
+      }
+      fasiHidden.value = JSON.stringify(fasi);
+      return true;
+    };
+
+    // Inizializza
+    renumberPhases();
+    updateRemoveButtons();
   }
-  
-  // Auto-resize textarea
-  document.querySelectorAll('textarea').forEach(textarea => {
-    textarea.addEventListener('input', function() {
-      this.style.height = 'auto';
-      this.style.height = this.scrollHeight + 'px';
-    });
-  });
+})();
 </script>
+
 {% endblock %}

@@ -1,0 +1,3 @@
+docker compose up --build
+
+/mnt/c/Users/USOFFIA/OneDrive - EOS S.p.A. - Production/Desktop/UMBERTO/BREW PROJECT/brewProject
