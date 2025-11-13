@@ -4,15 +4,12 @@ FROM python:3.11-slim
 # Imposta la directory di lavoro
 WORKDIR /app
 
-# Copia il file requirements
-COPY requirements.txt .
 
-# Installa le dipendenze
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copia il codice dell'applicazione e templates
-COPY app.py .
-COPY templates/ ./templates/
+COPY app/ ./app/
 
-# Comando per eseguire l'applicazione (Flask)
+WORKDIR /app
+
 CMD ["python", "app.py"]
