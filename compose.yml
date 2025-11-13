@@ -1,7 +1,9 @@
 version: '3.8'
 
 services:
-  # Database MongoDB
+  # -----------------------
+  # MongoDB Database
+  # -----------------------
   mongodb:
     image: mongo:7.0
     container_name: mongodb_container
@@ -16,7 +18,10 @@ services:
     networks:
       - app_network
 
-  # Applicazione Python
+  # -----------------------
+  # Python Application
+  # (your Flask-MQTT / SocketIO server)
+  # -----------------------
   python_app:
     build: .
     container_name: python_app_container
@@ -27,16 +32,40 @@ services:
       MONGO_PORT: 27017
       MONGO_USER: admin
       MONGO_PASSWORD: password123
+      MQTT_HOST: 0.0.0.0              # <-- MQTT broker runs in python_app
     ports:
-      - "5000:5000"  # Mappa porta host 5000 -> container 5000
+      - "5000:5000"
+      - "1883:1883"                   # <-- Expose MQTT broker
     networks:
       - app_network
 
-# Rete per far comunicare i container
+  # -----------------------
+  # Temperature Transmitter (Raspberry Pi)
+  # -----------------------
+  mqtt_transmitter:
+    build: ./transmitter            # folder containing Dockerfile + transmitter.py
+    container_name: temperature_transmitter
+    restart: always
+    privileged: true                 # REQUIRED for GPIO
+    devices:
+      - "/dev/gpiomem:/dev/gpiomem"  # GPIO access
+    depends_on:
+      - python_app
+    environment:
+      MQTT_BROKER: python_app        # publish directly to backend container
+      MQTT_PORT: 1883
+    networks:
+      - app_network
+
+# -----------------------
+# Networks
+# -----------------------
 networks:
   app_network:
     driver: bridge
 
-# Volume per persistere i dati di MongoDB
+# -----------------------
+# Volumes
+# -----------------------
 volumes:
   mongodb_data:

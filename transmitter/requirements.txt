@@ -1,0 +1,3 @@
+lgpio
+RPi.GPIO
+paho-mqtt

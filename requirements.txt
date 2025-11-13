@@ -3,3 +3,4 @@ pymongo==4.6.1
 flask
 flask_socketio 
 eventlet
+flask_mqtt

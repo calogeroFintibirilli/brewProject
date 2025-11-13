@@ -11,6 +11,7 @@ import json
 from flask_socketio import SocketIO, emit
 import random
 import threading
+from flask_mqtt import Mqtt
 import time
 
 
@@ -20,6 +21,20 @@ app = Flask(__name__)
 app.secret_key = 'chiave_segreta_per_flash'
 socketio = SocketIO(app, cors_allowed_origins="*")
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
+
+
+# ---------------- MQTT CONFIG ----------------
+app.config['MQTT_BROKER_URL'] = 'localhost'
+app.config['MQTT_BROKER_PORT'] = 1883
+app.config['MQTT_KEEPALIVE'] = 60
+app.config['MQTT_TLS_ENABLED'] = False
+
+mqtt = Mqtt(app)
+last_values = {
+    "TT01": None,
+    "TT02": None,
+    "TT03": None
+}
 
 def connect_to_mongodb():
     mongo_host = os.getenv('MONGO_HOST', 'mongodb')
@@ -548,19 +563,35 @@ def add_commento(esecuzione_id):
     return jsonify(success=False), 404
 
 
+# ---------------- MQTT CALLBACKS ----------------
+@mqtt.on_connect()
+def handle_connect(client, userdata, flags, rc):
+    print("MQTT Connesso con codice:", rc)
 
+    # Iscrizione a tutti i sensori
+    mqtt.subscribe("sensori/TT01")
+    mqtt.subscribe("sensori/TT02")
+    mqtt.subscribe("sensori/TT03")
+    print("Iscritto ai topic sensori/*")
 
+@mqtt.on_message()
+def handle_mqtt_message(client, userdata, message):
+    topic = message.topic
+    value = message.payload.decode()
 
+    print(f"[MQTT] Ricevuto {value} da {topic}")
 
+    # Estraggo nome sonda dal topic
+    sensor_id = topic.split("/")[-1]
 
-# --- FUNZIONE DI SIMULAZIONE DATI ---
-def sensori_background_thread():
-    """Invia dati simulati ogni secondo via WebSocket."""
-    with app.app_context():
-        while True:
-            value = round(random.uniform(50, 100), 2)
-            socketio.emit('sensor_update', {'value': value}, namespace='/sensori')
-            socketio.sleep(1)   # ⚠️ Usa socketio.sleep(), non time.sleep()
+    # Salvo l'ultimo valore
+    last_values[sensor_id] = value
+
+    # Invio ai client collegati via SocketIO
+    socketio.emit("sensor_update", {
+        "sensor": sensor_id,
+        "value": value
+    }, namespace="/sensori")
 
 # --- HANDLER CONNESSIONE ---
 @socketio.on('connect', namespace='/sensori')
@@ -568,7 +599,7 @@ def on_connect():
     print("✅ Client connesso al canale /sensori")
 
 # --- AVVIO THREAD DI BACKGROUND IN SICUREZZA ---
-socketio.start_background_task(sensori_background_thread)
+#socketio.start_background_task(sensori_background_thread)
 
 
 if __name__ == "__main__":
