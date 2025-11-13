@@ -1,13 +1,24 @@
+
+import eventlet
+eventlet.monkey_patch()
+
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from pymongo import MongoClient
 from datetime import datetime, timedelta
 from werkzeug.utils import secure_filename
 from bson import ObjectId
 import json
+from flask_socketio import SocketIO, emit
+import random
+import threading
+import time
+
+
 import os
 
 app = Flask(__name__)
 app.secret_key = 'chiave_segreta_per_flash'
+socketio = SocketIO(app, cors_allowed_origins="*")
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 
 def connect_to_mongodb():
@@ -232,6 +243,57 @@ def in_corso():
     client.close()
     return render_template('in_corso.html', esecuzioni=result)
 
+
+@app.route('/dettaglio/<esecuzione_id>')
+def dettaglio_lavorazione(esecuzione_id):
+    """Pagina di dettaglio per una produzione in corso."""
+    client = connect_to_mongodb()
+    db = client['mio_database']
+    esecuzioni_coll = db['esecuzioni']
+    ricette_coll = db['ricette']
+
+    e = esecuzioni_coll.find_one({"_id": ObjectId(esecuzione_id)})
+    if not e:
+        flash("Produzione non trovata.")
+        client.close()
+        return redirect(url_for('in_corso'))
+
+    ricetta = ricette_coll.find_one({"_id": e["ricetta_id"]})
+
+    # Normalizza i dati come per /in-corso
+    fasi_norm = []
+    for f in e.get("fasi", []):
+        data_inizio = f.get("data_inizio")
+        data_fine = f.get("data_fine")
+
+        if isinstance(data_inizio, datetime):
+            data_inizio = data_inizio.strftime('%Y-%m-%dT%H:%M:%SZ')
+        if isinstance(data_fine, datetime):
+            data_fine = data_fine.strftime('%Y-%m-%dT%H:%M:%S')
+
+        fasi_norm.append({
+            "numero": f.get("numero"),
+            "descrizione": f.get("descrizione", ""),
+            "durata_minuti": f.get("durata_minuti", 0),
+            "completata": f.get("completata", False),
+            "data_inizio": data_inizio,
+            "data_fine": data_fine,
+            "note": f.get("note", "")
+        })
+
+    lavorazione = {
+        "id": str(e["_id"]),
+        "nome_ricetta": ricetta["nome"] if ricetta else "Sconosciuta",
+        "foto": ricetta.get("foto") if ricetta else None,
+        "data_inizio": e.get("data_inizio").strftime("%Y-%m-%dT%H:%M:%S") if e.get("data_inizio") else "N/D",
+        "note": e.get("note", ""),
+        "stato": e.get("stato", "N/D"),
+        "fasi": fasi_norm,
+        "fase_corrente": e.get("fase_corrente", 1)
+    }
+
+    client.close()
+    return render_template("dettaglio_lavorazione.html", lavorazione=lavorazione)
 @app.route('/storico')
 def storico():
     client = connect_to_mongodb()
@@ -457,5 +519,57 @@ def storico_ricette():
     client.close()
     return render_template('storico_ricette.html', ricette=archiviate, total=total)
 
+@app.route('/produzione/<esecuzione_id>/commento', methods=['POST'])
+def add_commento(esecuzione_id):
+    client = connect_to_mongodb()
+    db = client['mio_database']
+    esecuzioni_coll = db['esecuzioni']
+
+    data = request.get_json(silent=True) or {}
+    testo = data.get("testo", "").strip()
+    if not testo:
+        client.close()
+        return jsonify(success=False, error="Testo vuoto"), 400
+
+    commento = {
+        "utente": "Operatore",
+        "testo": testo,
+        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    }
+
+    res = esecuzioni_coll.update_one(
+        {"_id": ObjectId(esecuzione_id)},
+        {"$push": {"commenti": {"$each": [commento], "$position": 0}}}
+    )
+
+    client.close()
+    if res.matched_count:
+        return jsonify(success=True, comment=commento)
+    return jsonify(success=False), 404
+
+
+
+
+
+
+
+# --- FUNZIONE DI SIMULAZIONE DATI ---
+def sensori_background_thread():
+    """Invia dati simulati ogni secondo via WebSocket."""
+    with app.app_context():
+        while True:
+            value = round(random.uniform(50, 100), 2)
+            socketio.emit('sensor_update', {'value': value}, namespace='/sensori')
+            socketio.sleep(1)   # ⚠️ Usa socketio.sleep(), non time.sleep()
+
+# --- HANDLER CONNESSIONE ---
+@socketio.on('connect', namespace='/sensori')
+def on_connect():
+    print("✅ Client connesso al canale /sensori")
+
+# --- AVVIO THREAD DI BACKGROUND IN SICUREZZA ---
+socketio.start_background_task(sensori_background_thread)
+
+
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5000, debug=False)
+      socketio.run(app, host="0.0.0.0", port=5000, debug=True)

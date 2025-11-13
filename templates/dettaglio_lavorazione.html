@@ -1,0 +1,234 @@
+{% extends "base.html" %}
+{% block title %}Cruscotto - {{ lavorazione.nome_ricetta }}{% endblock %}
+{% block page_icon %}⚙️{% endblock %}
+{% block header %}Cruscotto di Produzione{% endblock %}
+
+{% block extra_styles %}
+<style>
+.dashboard {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+  max-width: 1300px;
+  margin: 0 auto;
+}
+.kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.kpi-card {
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 20px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+.kpi-value { font-size: 2rem; font-weight: 800; color: var(--accent); }
+.kpi-label { font-size: 0.9rem; color: var(--muted); }
+.production-section {
+  background: rgba(0,0,0,0.25);
+  border-radius: 16px;
+  padding: 20px;
+  border: 1px solid var(--border);
+}
+.section-title {
+  font-weight: 700; font-size: 1.2rem; margin-bottom: 12px;
+  display: flex; align-items: center; gap: 8px;
+}
+.phase-list { max-height: 70vh; overflow-y: auto; padding-right: 8px; }
+.sensor-panel { display: flex; flex-direction: column; gap: 20px; }
+.sensor-card {
+  background: rgba(0,0,0,0.3); border-radius: 16px;
+  padding: 16px; border: 1px solid var(--border);
+  box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+}
+.sensor-header { font-weight: 600; margin-bottom: 8px; }
+.sensor-current { text-align: center; font-size: 2rem; font-weight: 700; color: var(--accent); }
+.phase-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--border);
+  border-radius: 12px; padding: 12px 16px; margin-bottom: 12px;
+  transition: all 0.3s ease;
+}
+.phase-card.active { border-color: var(--accent); background: rgba(255,167,38,0.07); }
+.phase-card.completed { border-left: 3px solid var(--success); opacity: 0.85; }
+.phase-header { display: flex; justify-content: space-between; align-items: center; }
+.phase-title { font-weight: 700; }
+.phase-timer { font-family: monospace; font-size: 1.2rem; color: var(--accent); font-weight: 700; }
+.phase-progress { width: 100%; height: 8px; background: rgba(255,255,255,0.1); border-radius: 4px; overflow: hidden; margin-top: 8px; }
+.phase-progress-fill { height: 100%; background: linear-gradient(90deg, var(--accent), var(--accent-dark)); width: 0%; transition: width 0.5s linear; }
+.btn { padding: 8px 16px; border-radius: 8px; border: none; cursor: pointer; font-weight: 700; }
+.btn-primary { background: var(--accent); color: #000; }
+.btn-success { background: var(--success); color: #fff; }
+.btn-danger { background: var(--danger); color: #fff; width: 100%; margin-top: 12px; }
+
+/* NOTE/COMMENTI */
+.comment-section { margin-top: 30px; }
+.comment-input { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid var(--border); background: rgba(255,255,255,0.05); color: var(--text); margin-top: 8px; resize: vertical; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="dashboard">
+
+  <!-- SINISTRA -->
+  <div class="production-section">
+    <div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-value">{{ lavorazione.fasi|selectattr('completata','equalto',True)|list|length }}/{{ lavorazione.fasi|length }}</div>
+        <div class="kpi-label">Fasi completate</div>
+      </div>
+      <div class="kpi-card">
+        {% set completate = lavorazione.fasi|selectattr('completata','equalto',True)|list|length %}
+        <div class="kpi-value">{{ ((completate / lavorazione.fasi|length) * 100)|int }}%</div>
+        <div class="kpi-label">Avanzamento</div>
+      </div>
+      <div class="kpi-card">
+        <div class="kpi-value">{{ lavorazione.data_inizio }}</div>
+        <div class="kpi-label">Data inizio</div>
+      </div>
+    </div>
+
+    <h3 class="section-title">📋 Fasi di Produzione</h3>
+    <div class="phase-list">
+      {% for fase in lavorazione.fasi %}
+      <div class="phase-card {% if fase.numero == lavorazione.fase_corrente %}active{% endif %}{% if fase.completata %} completed{% endif %}" id="fase-{{ fase.numero }}">
+        <div class="phase-header">
+          <span class="phase-title">{{ fase.numero }}. {{ fase.descrizione }}</span>
+          {% if fase.numero == lavorazione.fase_corrente and not fase.completata and fase.data_inizio %}
+          <div class="phase-timer" id="timer-{{ lavorazione.id }}-{{ fase.numero }}" data-start-time="{{ fase.data_inizio }}" data-duration="{{ (fase.durata_minuti or 0)*60 }}">00:00:00</div>
+          {% elif fase.completata %}
+          <span style="color:var(--success);font-weight:700;">✓</span>
+          {% endif %}
+        </div>
+
+        {% if fase.durata_minuti %}
+        <div class="phase-progress">
+          <div class="phase-progress-fill" id="progress-{{ lavorazione.id }}-{{ fase.numero }}"></div>
+        </div>
+        {% endif %}
+
+        {% if fase.numero == lavorazione.fase_corrente and not fase.completata %}
+        <div style="margin-top:10px;">
+          {% if not fase.data_inizio %}
+          <button class="btn btn-primary" onclick="startPhase('{{ lavorazione.id }}', {{ fase.numero }})">▶️ Avvia</button>
+          {% else %}
+          <button class="btn btn-success" onclick="completePhase('{{ lavorazione.id }}', {{ fase.numero }})">✓ Completa</button>
+          {% endif %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <!-- NOTE/COMMENTI -->
+    <div class="comment-section">
+      <h3 class="section-title">💬 Note di Produzione</h3>
+      <textarea id="productionNotes" class="comment-input"
+                placeholder="Aggiungi o modifica le note..."
+                rows="5">{{ lavorazione.note or '' }}</textarea>
+      <button class="btn btn-primary" id="saveNotes">💾 Salva Note</button>
+    </div>
+
+    <form method="post" action="/termina/{{ lavorazione.id }}">
+      <button type="submit" class="btn btn-danger" onclick="return confirm('Terminare la produzione?')">🏁 Termina Produzione</button>
+    </form>
+  </div>
+
+  <!-- DESTRA -->
+  <div class="sensor-panel">
+    <div class="sensor-card">
+      <div class="sensor-header">📊 Andamento Sensori</div>
+      <canvas id="sensorChart" height="180"></canvas>
+    </div>
+    <div class="sensor-card">
+      <div class="sensor-header">Valore Istantaneo</div>
+      <div class="sensor-current" id="currentValue">--</div>
+    </div>
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
+<script>
+/* === FASI AJAX === */
+function startPhase(id, n) {
+  fetch(`/fase/${id}/${n}/start`, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => { if (data.success) location.reload(); });
+}
+function completePhase(id, n) {
+  if (!confirm('Confermi di aver completato la fase?')) return;
+  fetch(`/fase/${id}/${n}/complete`, { method: 'POST' })
+    .then(r => r.json())
+    .then(data => { if (data.success) location.reload(); });
+}
+
+/* === TIMER === */
+function updateTimers() {
+  document.querySelectorAll('.phase-timer').forEach(el => {
+    const start = Date.parse(el.dataset.startTime);
+    const duration = parseInt(el.dataset.duration || 0, 10);
+    if (!start || !duration) return;
+    const remaining = Math.max(0, Math.floor((start + duration * 1000 - Date.now()) / 1000));
+    const h = String(Math.floor(remaining / 3600)).padStart(2, '0');
+    const m = String(Math.floor((remaining % 3600) / 60)).padStart(2, '0');
+    const s = String(remaining % 60).padStart(2, '0');
+    el.textContent = `${h}:${m}:${s}`;
+    const fill = document.getElementById(`progress-${el.id.split('-')[1]}-${el.id.split('-')[2]}`);
+    if (fill) fill.style.width = `${((duration - remaining) / duration) * 100}%`;
+  });
+}
+setInterval(updateTimers, 1000);
+updateTimers();
+
+/* === GRAFICO SENSORI === */
+const labels = [];
+const data = { labels, datasets: [{ label: 'Sensore', data: [], borderColor: '#ffa726', backgroundColor: 'rgba(255,167,38,0.1)', fill: true, tension: 0.3 }] };
+const ctx = document.getElementById('sensorChart');
+const chart = new Chart(ctx, {
+  type: 'line', data,
+  options: {
+    animation: false,
+    scales: { y: { suggestedMin: 50, suggestedMax: 100, ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } },
+              x: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } } },
+    plugins: { legend: { labels: { color: '#fff' } } }
+  }
+});
+const socket = io(`${window.location.origin}/sensori`, { transports: ['websocket'] });
+socket.on('sensor_update', msg => {
+  const v = msg.value;
+  document.getElementById('currentValue').textContent = v.toFixed(1);
+  labels.push(new Date().toLocaleTimeString());
+  data.datasets[0].data.push(v);
+  if (labels.length > 60) { labels.shift(); data.datasets[0].data.shift(); }
+  chart.update();
+});
+
+/* === NOTE / COMMENTI === */
+document.getElementById('saveNotes').addEventListener('click', () => {
+  const note = document.getElementById('productionNotes').value.trim();
+  fetch(`/produzione/{{ lavorazione.id }}/note`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ note })
+  })
+  .then(r => r.json())
+  .then(d => {
+    if (d.success) {
+      alert('💾 Note aggiornate con successo');
+    } else {
+      alert('Errore durante il salvataggio delle note');
+    }
+  });
+});
+</script>
+{% endblock %}
+   
