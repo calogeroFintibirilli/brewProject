@@ -19,23 +19,39 @@ services:
       - app_network
 
   # -----------------------
+  # MQTT Broker (Mosquitto)
+  # -----------------------
+  mqtt_broker:
+    image: eclipse-mosquitto:2
+    container_name: mosquitto_broker
+    restart: always
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    networks:
+      - app_network
+
+  # -----------------------
   # Python Application
-  # (your Flask-MQTT / SocketIO server)
+  # Flask + Flask-MQTT + SocketIO
   # -----------------------
   python_app:
     build: .
     container_name: python_app_container
     depends_on:
       - mongodb
+      - mqtt_broker
     environment:
       MONGO_HOST: mongodb
       MONGO_PORT: 27017
       MONGO_USER: admin
       MONGO_PASSWORD: password123
-      MQTT_HOST: 0.0.0.0              # <-- MQTT broker runs in python_app
+
+      MQTT_BROKER_URL: mqtt_broker   # Flask connects to Mosquitto
+      MQTT_BROKER_PORT: 1883
     ports:
       - "5000:5000"
-      - "1883:1883"                   # <-- Expose MQTT broker
     networks:
       - app_network
 
@@ -43,16 +59,16 @@ services:
   # Temperature Transmitter (Raspberry Pi)
   # -----------------------
   mqtt_transmitter:
-    build: ./transmitter            # folder containing Dockerfile + transmitter.py
+    build: ./transmitter
     container_name: temperature_transmitter
     restart: always
-    privileged: true                 # REQUIRED for GPIO
+    privileged: true
     devices:
-      - "/dev/gpiomem:/dev/gpiomem"  # GPIO access
+      - "/dev/gpiomem:/dev/gpiomem"
     depends_on:
-      - python_app
+      - mqtt_broker                   # Wait until Mosquitto is up
     environment:
-      MQTT_BROKER: python_app        # publish directly to backend container
+      MQTT_BROKER: mqtt_broker       # Publish to Mosquitto
       MQTT_PORT: 1883
     networks:
       - app_network
