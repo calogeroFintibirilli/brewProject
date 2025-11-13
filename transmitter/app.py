@@ -23,19 +23,19 @@ MQTT_BROKER = "python_app"
 MQTT_PORT = 1883
 
 def connect_mqtt():
-    client = mqtt.Client(client_id="pi-temp-sender", callback_api_version=1)
+    client = mqtt.Client("pi-temp-sender")
 
     while True:
+        time.sleep(5)
         try:
             print(f"Connecting to MQTT broker {MQTT_BROKER}:{MQTT_PORT} ...")
             client.connect(MQTT_BROKER, MQTT_PORT, 60)
             print("Connected to MQTT!")
             return client
-
         except Exception as e:
             print(f"MQTT connection failed: {e}")
             print("Retrying in 5 seconds...")
-            time.sleep(5)
+            
 
 client = connect_mqtt()
 
