@@ -138,15 +138,20 @@
     </form>
   </div>
 
+
   <!-- DESTRA -->
   <div class="sensor-panel">
     <div class="sensor-card">
       <div class="sensor-header">📊 Andamento Sensori</div>
-      <canvas id="sensorChart" height="180"></canvas>
+        <canvas id="chartTT01" height="140"></canvas>
+  <canvas id="chartTT02" height="140" style="margin-top:25px;"></canvas>
+  <canvas id="chartTT03" height="140" style="margin-top:25px;"></canvas>
     </div>
     <div class="sensor-card">
       <div class="sensor-header">Valore Istantaneo</div>
-      <div class="sensor-current" id="currentValue">--</div>
+      <div class="sensor-current">TT01: <span id="valTT01">--</span></div>
+      <div class="sensor-current">TT02: <span id="valTT02">--</span></div>
+      <div class="sensor-current">TT03: <span id="valTT03">--</span></div>
     </div>
   </div>
 
@@ -193,23 +198,89 @@ updateTimers();
 const labels = [];
 const data = { labels, datasets: [{ label: 'Sensore', data: [], borderColor: '#ffa726', backgroundColor: 'rgba(255,167,38,0.1)', fill: true, tension: 0.3 }] };
 const ctx = document.getElementById('sensorChart');
-const chart = new Chart(ctx, {
-  type: 'line', data,
-  options: {
-    animation: false,
-    scales: { y: { suggestedMin: 50, suggestedMax: 100, ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } },
-              x: { ticks: { color: '#fff' }, grid: { color: 'rgba(255,255,255,0.1)' } } },
-    plugins: { legend: { labels: { color: '#fff' } } }
-  }
+/* === GRAFICO SENSORI MULTIPLI === */
+const charts = {};
+const MAX_POINTS = 60;
+// inizializza i grafici TT01, TT02, TT03
+// inizializzo i 3 grafici TT01, TT02, TT03
+["TT01", "TT02", "TT03"].forEach(id => {
+  const canvas = document.getElementById(`chartTT01`.replace("TT01", id));
+  if (!canvas) return;   // se manca il canvas, salto
+
+  const ctx = canvas.getContext("2d");
+
+  charts[id] = new Chart(ctx, {
+    type: "line",
+    data: {
+      labels: [],
+      datasets: [{
+        label: id,
+        data: [],
+        borderColor: "#ffa726",
+        backgroundColor: "rgba(255,167,38,0.15)",
+        fill: true,
+        tension: 0.3
+      }]
+    },
+    options: {
+      animation: false,
+      plugins: { 
+        legend: { 
+          labels: { color: "#fff" } 
+        } 
+      },
+      scales: {
+        y: {
+          ticks: { color: "#fff" },
+          grid: { color: "rgba(255,255,255,0.1)" }
+        },
+        x: {
+          ticks: { color: "#fff" },
+          grid: { color: "rgba(255,255,255,0.1)" }
+        }
+      }
+    }
+  });
 });
-const socket = io(`${window.location.origin}/sensori`, { transports: ['websocket'] });
-socket.on('sensor_update', msg => {
-  const v = msg.value;
-  document.getElementById('currentValue').textContent = v.toFixed(1);
-  labels.push(new Date().toLocaleTimeString());
-  data.datasets[0].data.push(v);
-  if (labels.length > 60) { labels.shift(); data.datasets[0].data.shift(); }
-  chart.update();
+
+const socket = io(`${window.location.origin}/sensori`, { transports: ["websocket"] });
+
+socket.on("sensor_update", msg => {
+  console.log("sensor_update ricevuto:", msg);
+
+  // ci aspettiamo qualcosa del tipo:
+  // msg = { sensors: { TT01: 5.00, TT02: 6.60, TT03: 3.30 } }
+  const sensors = msg.sensors || msg;   // fallback: se non c'è .sensors uso direttamente msg
+
+  ["TT01", "TT02", "TT03"].forEach(id => {
+    if (!(id in sensors)) return;
+
+    const raw = sensors[id];
+    const val = Number(raw);
+
+    // --- aggiorno grafico ---
+    const chart = charts[id];
+    if (chart) {
+      chart.data.labels.push(new Date().toLocaleTimeString());
+      chart.data.datasets[0].data.push(val);
+
+      if (chart.data.labels.length > MAX_POINTS) {
+        chart.data.labels.shift();
+        chart.data.datasets[0].data.shift();
+      }
+      chart.update();
+    }
+
+    // --- aggiorno casella di testo ---
+    const input = document.getElementById(`val${id}`);
+    if (input) {
+      if (isNaN(val)) {
+        input.innerHTML = "--";
+      } else {
+        input.innerHTML = val.toFixed(2);
+      }
+    }
+  });
 });
 
 /* === NOTE / COMMENTI === */

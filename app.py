@@ -19,15 +19,16 @@ import os
 
 app = Flask(__name__)
 app.secret_key = 'chiave_segreta_per_flash'
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 
 
 # ---------------- MQTT CONFIG ----------------
-app.config['MQTT_BROKER_URL'] = 'localhost'
+app.config['MQTT_BROKER_URL'] = 'mqtt_broker'
 app.config['MQTT_BROKER_PORT'] = 1883
 app.config['MQTT_KEEPALIVE'] = 60
 app.config['MQTT_TLS_ENABLED'] = False
+app.config['MQTT_AUTO_CONNECT'] = False  
 
 mqtt = Mqtt(app)
 last_values = {
@@ -564,35 +565,37 @@ def add_commento(esecuzione_id):
 
 
 # ---------------- MQTT CALLBACKS ----------------
+
+        
 @mqtt.on_connect()
 def handle_connect(client, userdata, flags, rc):
     print("MQTT Connesso con codice:", rc)
 
-    # Iscrizione a tutti i sensori
-    mqtt.subscribe("sensori/TT01")
-    mqtt.subscribe("sensori/TT02")
-    mqtt.subscribe("sensori/TT03")
-    print("Iscritto ai topic sensori/*")
+    if rc == 0:
+        print("Sottoscrizione ai topic sensori...")
+        mqtt.subscribe("sensori/#")  
+    else:
+        print("Errore connessione MQTT, rc =", rc)
 
 @mqtt.on_message()
 def handle_mqtt_message(client, userdata, message):
     topic = message.topic
     value = message.payload.decode()
 
-    print(f"[MQTT] Ricevuto {value} da {topic}")
 
-    # Estraggo nome sonda dal topic
+    # Estrazione nome sonda
     sensor_id = topic.split("/")[-1]
 
-    # Salvo l'ultimo valore
+    # Aggiorna ultimo valore
     last_values[sensor_id] = value
 
-    # Invio ai client collegati via SocketIO
+    # Invia aggiornamento a tutti i client socket
     socketio.emit("sensor_update", {
-        "sensor": sensor_id,
-        "value": value
+        "sensors": last_values
     }, namespace="/sensori")
-
+    
+    
+    
 # --- HANDLER CONNESSIONE ---
 @socketio.on('connect', namespace='/sensori')
 def on_connect():
@@ -603,4 +606,4 @@ def on_connect():
 
 
 if __name__ == "__main__":
-      socketio.run(app, host="0.0.0.0", port=5000, debug=True)
+      socketio.run(app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)
