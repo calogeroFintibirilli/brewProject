@@ -22,7 +22,7 @@ app.config['UPLOAD_FOLDER'] = 'static/uploads'
 
 
 def connect_to_mongodb():
-    mongo_host = os.getenv('MONGO_HOST', 'mongodb')
+    mongo_host = os.getenv('MONGO_HOST', 'pi')
     mongo_port = int(os.getenv('MONGO_PORT', 27017))
     mongo_user = os.getenv('MONGO_USER', 'admin')
     mongo_password = os.getenv('MONGO_PASSWORD', 'password123')
@@ -552,7 +552,7 @@ def add_commento(esecuzione_id):
 
 
 # ---------------- MQTT CONFIG ----------------
-app.config['MQTT_BROKER_URL'] = '192.168.1.57'
+app.config['MQTT_BROKER_URL'] = 'pi'
 app.config['MQTT_BROKER_PORT'] = 1883
 app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
 app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
