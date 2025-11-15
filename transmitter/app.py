@@ -1,6 +1,6 @@
 import time
 import paho.mqtt.client as mqtt
-# import max6675
+import max6675
 
 # MQTT CONFIG
 MQTT_BROKER = "pi" 
@@ -14,8 +14,8 @@ cs2 = 21
 sck = 18
 so = 16
 
-# max6675.set_pin(cs1, sck, so, 1)
-# max6675.set_pin(cs2, sck, so, 1)
+max6675.set_pin(cs1, sck, so, 1)
+max6675.set_pin(cs2, sck, so, 1)
 
 client = mqtt.Client("pi-temp-sender")
 
@@ -44,20 +44,18 @@ print("Connected to MQTT Broker:", MQTT_BROKER)
 
 try:
     while True:
-       # t1 = max6675.read_temp(cs1)
-       # t2 = max6675.read_temp(cs2)
-        t1=5
-        t2=6
+        t1 = max6675.read_temp(cs1)
+        t2 = max6675.read_temp(cs2)
 
-        print(f"TT01 = {t1} °C")
-        print(f"TT02 = {t2} °C")
+        # print(f"TT01 = {t1} °C")
+        # print(f"TT02 = {t2} °C")
 
         # Publish to MQTT
         result1 = client.publish(TOPIC_1, t1)
         
         result2 = client.publish(TOPIC_2, t2)
 
-        print("Publish result:", result1.rc, result2.rc)
+        # print("Publish result:", result1.rc, result2.rc)
 
         time.sleep(0.5)
 
