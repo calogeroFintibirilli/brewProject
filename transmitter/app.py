@@ -3,7 +3,7 @@ import paho.mqtt.client as mqtt
 # import max6675
 
 # MQTT CONFIG
-MQTT_BROKER = "127.0.0.1" 
+MQTT_BROKER = "pi" 
 MQTT_PORT = 1883
 TOPIC_1 = "sensori/TT01"
 TOPIC_2 = "sensori/TT02"
