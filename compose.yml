@@ -44,12 +44,12 @@ services:
       - mongodb
       - mqtt_broker
     environment:
-      MONGO_HOST: mongodb
+      MONGO_HOST: pi
       MONGO_PORT: 27017
       MONGO_USER: admin
       MONGO_PASSWORD: password123
 
-      MQTT_BROKER_URL: 192.168.1.57   
+      MQTT_BROKER_URL: pi   
       MQTT_BROKER_PORT: 1883
     ports:
       - "5000:5000"
