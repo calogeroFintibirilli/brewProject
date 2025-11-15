@@ -1,7 +1,3 @@
-
-import eventlet
-eventlet.monkey_patch()
-
 from flask import Flask, render_template, request, redirect, url_for, flash, jsonify
 from pymongo import MongoClient
 from datetime import datetime, timedelta
@@ -23,19 +19,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 app.config['UPLOAD_FOLDER'] = 'static/uploads'
 
 
-# ---------------- MQTT CONFIG ----------------
-app.config['MQTT_BROKER_URL'] = 'mqtt_broker'
-app.config['MQTT_BROKER_PORT'] = 1883
-app.config['MQTT_KEEPALIVE'] = 60
-app.config['MQTT_TLS_ENABLED'] = False
-app.config['MQTT_AUTO_CONNECT'] = False  
 
-mqtt = Mqtt(app)
-last_values = {
-    "TT01": None,
-    "TT02": None,
-    "TT03": None
-}
 
 def connect_to_mongodb():
     mongo_host = os.getenv('MONGO_HOST', 'mongodb')
@@ -566,34 +550,38 @@ def add_commento(esecuzione_id):
 
 # ---------------- MQTT CALLBACKS ----------------
 
-        
-@mqtt.on_connect()
+
+# ---------------- MQTT CONFIG ----------------
+app.config['MQTT_BROKER_URL'] = '192.168.1.57'
+app.config['MQTT_BROKER_PORT'] = 1883
+app.config['MQTT_USERNAME'] = ''  # Set this item when you need to verify username and password
+app.config['MQTT_PASSWORD'] = ''  # Set this item when you need to verify username and password
+app.config['MQTT_KEEPALIVE'] = 5  # Set KeepAlive time in seconds
+app.config['MQTT_TLS_ENABLED'] = False  # If your broker supports TLS, set it True
+last_values = {"TT01": None, "TT02": None, "TT03": None}
+mqtt_client = Mqtt(app)
+
+@mqtt_client.on_connect()
 def handle_connect(client, userdata, flags, rc):
-    print("MQTT Connesso con codice:", rc)
+   if rc == 0:
+       print('Connected successfully')
+       mqtt_client.subscribe("sensori/#")
+   else:
+       print('Bad connection. Code:', rc)
+       
 
-    if rc == 0:
-        print("Sottoscrizione ai topic sensori...")
-        mqtt.subscribe("sensori/#")  
-    else:
-        print("Errore connessione MQTT, rc =", rc)
 
-@mqtt.on_message()
+
+@mqtt_client.on_message()
 def handle_mqtt_message(client, userdata, message):
-    topic = message.topic
+    sensor = message.topic.split("/")[-1]
     value = message.payload.decode()
 
+    last_values[sensor] = value
 
-    # Estrazione nome sonda
-    sensor_id = topic.split("/")[-1]
-
-    # Aggiorna ultimo valore
-    last_values[sensor_id] = value
-
-    # Invia aggiornamento a tutti i client socket
-    socketio.emit("sensor_update", {
-        "sensors": last_values
-    }, namespace="/sensori")
-    
+    socketio.emit("sensor_update",
+                  {"sensors": last_values},
+                  namespace="/sensori")
     
     
 # --- HANDLER CONNESSIONE ---

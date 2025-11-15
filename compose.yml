@@ -39,6 +39,7 @@ services:
   python_app:
     build: .
     container_name: python_app_container
+    network_mode: "host"
     depends_on:
       - mongodb
       - mqtt_broker
@@ -48,12 +49,10 @@ services:
       MONGO_USER: admin
       MONGO_PASSWORD: password123
 
-      MQTT_BROKER_URL: mqtt_broker   # Flask connects to Mosquitto
+      MQTT_BROKER_URL: 192.168.1.57   
       MQTT_BROKER_PORT: 1883
     ports:
       - "5000:5000"
-    networks:
-      - app_network
 
   # -----------------------
   # Temperature Transmitter (Raspberry Pi)
