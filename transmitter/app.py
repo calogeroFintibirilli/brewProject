@@ -57,7 +57,7 @@ try:
 
         # print("Publish result:", result1.rc, result2.rc)
 
-        time.sleep(0.5)
+        time.sleep(60)
 
 except KeyboardInterrupt:
     print("Stopping transmitter...")
